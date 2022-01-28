@@ -1,0 +1,21 @@
+version: "3"
+services:
+  batfish:
+    image: "batfish/batfish"
+    container_name: "batfish"
+    ports:
+      - "9996:9996"
+      - "9997:9997"
+  batfish-wrapper:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    image: batfish-wrapper
+    environment:
+      BATFISH_HOST: batfish
+    ports:
+      - "5000:5000"
+    volumes:
+      - .:/batfish-wrapper
+    depends_on:
+      - batfish
