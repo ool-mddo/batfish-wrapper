@@ -3,6 +3,7 @@ import json
 import shutil
 import sys
 import re
+from pathlib import Path
 from os import path, makedirs, link
 
 
@@ -133,16 +134,94 @@ def make_snapshot_dir(
         index, input_snapshot_dir_path, output_snapshot_dir_path, l1_topology_data_off["lost_edges"], description
     )
 
+    result_data = {"snapshot_info": metadata}
     if dry_run:
         for edge in l1_topology_data_off["lost_edges"]:
-            print("# DRY_RUN: lost: %s[%s] -> %s[%s]" % edge2tuple(edge))
-        return
+            print("%s[%s] -> %s[%s]" % edge2tuple(edge))
+        return result_data
 
     # make configs directory and config files in output snap@shot directory
-    shutil.rmtree(output_snapshot_dir_path, ignore_errors=True)  # clean
     makedirs(output_snapshot_configs_dir_path, exist_ok=True)  # make dirs recursively
     make_output_configs(input_snapshot_dir_path, output_snapshot_dir_path)
     # write data to layer1_topology.json in output snapshot directory
     write_l1_topology_data(output_snapshot_dir_path, l1_topology_data_off["found_edges"])
     # write metadata
     write_snapshot_metadata(output_snapshot_dir_path, metadata)
+
+    return result_data
+
+
+def detect_snapshot_dir_path(l1topo_path):
+    l1path = Path(l1topo_path)
+    if l1path.parent.name == "batfish":
+        return str(l1path.parent.parent)
+    else:
+        return str(l1path.parent)
+
+
+def make_linkdown_snapshots(input_snapshot_base, output_snapshot_base, node, link_regexp, dry_run):
+
+    # input/output snapshot directory construction:
+    # + snapshot_base_dir/
+    #   + snapshot_dir/
+    #     + configs/ (fixed, refer as "snapshot_configs_dir")
+    #     - layer1_topology.json (fixed name)
+
+    l1_topology_files = glob.glob("%s/**/layer1_topology.json" % path.expanduser(input_snapshot_base), recursive=True)
+    if len(l1_topology_files) != 1:
+        print(
+            "# Error: layer1_topology.json not found or found multiple in snapshot directory %s" % input_snapshot_base,
+            file=sys.stderr,
+        )
+        return {"result": "ERROR"}
+
+    input_snapshot_dir_path = detect_snapshot_dir_path(l1_topology_files[0])
+    input_snapshot_dir_name = path.basename(input_snapshot_dir_path)
+    input_snapshot_configs_dir_path = path.join(path.dirname(l1_topology_files[0]), "configs")
+    output_snapshot_base_dir_path = path.expanduser(output_snapshot_base)
+    print("# input")
+    print("# + snapshot base dir: %s" % input_snapshot_base)
+    print("#   + snapshot dir: %s (%s)" % (input_snapshot_configs_dir_path, input_snapshot_dir_name))
+    print("#     + snapshot config dir:  %s" % input_snapshot_configs_dir_path)
+
+    # read layer1 topology data
+    l1_topology_data = read_l1_topology_data(input_snapshot_dir_path)
+
+    # clear output base directory if exists
+    if path.isdir(output_snapshot_base_dir_path):
+        shutil.rmtree(output_snapshot_base_dir_path, ignore_errors=True)  # clean
+
+    # option control
+    results = []
+    if node is None:
+        # deduplicate edges (layer1_topology link definition is bidirectional)
+        uniq_edges = deduplicate_edges(l1_topology_data["edges"])
+        for i, edge in enumerate(uniq_edges):
+            index = i + 1  # index number start 1
+            result = make_snapshot_dir(
+                index,
+                input_snapshot_dir_path,
+                output_snapshot_base_dir_path,
+                "%s_%02d" % (input_snapshot_dir_name, index),
+                l1_topology_data,
+                edge["node1"]["hostname"],
+                edge["node1"]["interfaceName"],
+                "No.%02d: " % index + "down %s[%s] <=> %s[%s] in layer1" % edge2tuple(edge),
+                dry_run,
+            )
+            results.append(result)
+    else:
+        result = make_snapshot_dir(
+            0,
+            input_snapshot_dir_path,
+            output_snapshot_base_dir_path,
+            input_snapshot_dir_name,
+            l1_topology_data,
+            node,
+            link_regexp,
+            "Draw-off node: %s, link_pattern: %s" % (node, link_regexp),
+            dry_run,
+        )
+        results.append(result)
+
+    return results
