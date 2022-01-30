@@ -8,6 +8,8 @@ import cli.make_linkdown_snapshots_ops as lso
 import cli.register_snapshots_ops as rso
 import cli.exec_queries_ops as eqo
 
+from typing import List, Dict, Optional
+
 app = Flask(__name__)
 logging.basicConfig(level=logging.WARNING)
 BATFISH_HOST = os.environ["BATFISH_HOST"] or "localhost"
@@ -36,30 +38,6 @@ def _rec_dict(obj):
         )
     else:
         return obj
-
-
-@app.route("/api/nodes", methods=["GET"])
-def get_node_list():
-    """
-    get all node names
-    returns:
-    * a response
-      * response := batfish session info + list of node name
-    """
-    bf = Session(host=BATFISH_HOST)
-    network = bf.set_network(name=ORIGINAL_NETWORK)
-    snapshot = bf.set_snapshot(index=0)
-    node_props = bf.q.nodeProperties().answer().frame()
-    res = []
-    for index, row in node_props.iterrows():
-        res.append(row["Node"])
-    return jsonify(
-        {
-            "network": network,
-            "snapshot": snapshot,
-            "result": res,
-        }
-    )
 
 
 def _traceroute(bf, node_name, intf, intf_ip, destination, network, snapshot):
@@ -101,6 +79,15 @@ def ip_of_intf(bf, node_name, intf):
     )
     return intf_ip_prefix[: intf_ip_prefix.find("/")]
 
+def get_interface_first_ip(network: str, snapshot: str, node: str, interface: str, bf: Optional[Session] = None) -> str:
+    if not bf:
+        bf = Session(host=BATFISH_HOST)
+    bf.set_network(name=network)
+    bf.set_snapshot(name=snapshot)
+    intf_ip_prefix = (
+        bf.q.interfaceProperties(nodes=node, interfaces=interface).answer().frame().to_dict()["All_Prefixes"][0][0]
+    )
+    return intf_ip_prefix[: intf_ip_prefix.find("/")]
 
 @app.route("/api/nodes/<src_node>/traceroute")
 def traceroute(src_node):
@@ -151,18 +138,35 @@ def traceroute(src_node):
         ]
     )
 
+@app.route("/api/networks/<network_name>/snapshots/<snapshot_name>/nodes", methods=["GET"])
+def api_node_list(network_name, snapshot_name):
+    """
+    get all node names
+    params:
+    * network
+    * snapshot
+    returns:
+    * a list of node names (str)
+    """
+    bf = Session(host=BATFISH_HOST)
+    network = bf.set_network(name=network_name)
+    snapshot = bf.set_snapshot(name=snapshot_name)
+    node_props = bf.q.nodeProperties().answer().frame()
+    res = []
+    for index, row in node_props.iterrows():
+        res.append(row["Node"])
+    return jsonify(res)
 
-@app.route("/api/interfaces", methods=["GET"])
-def get_interface_list():
+@app.route("/api/networks/<network_name>/snapshots/<snapshot_name>/interfaces", methods=["GET"])
+def api_interface_list(network_name, snapshot_name):
     """
     get all interfaces
     returns
-    * a response
-      * response := batfish session info + list of {node, interface, list of address}
+    * a list of {node, interface, list of address}
     """
     bf = Session(host=BATFISH_HOST)
-    network = bf.set_network(name=ORIGINAL_NETWORK)
-    snapshot = bf.set_snapshot(index=0)
+    network = bf.set_network(network_name)
+    snapshot = bf.set_snapshot(snapshot_name)
     interface_props = bf.q.interfaceProperties().answer().frame()
     res = []
     for index, row in interface_props.iterrows():
@@ -173,26 +177,104 @@ def get_interface_list():
                 "addresses": list(map(lambda x: x[: x.find("/")], row["All_Prefixes"])),
             }
         )
-    return jsonify(
-        {
-            "network": network,
-            "snapshot": snapshot,
-            "result": res,
-        }
-    )
+    return jsonify(res)
 
+@app.route("/api/networks/<network_name>/snapshots/<snapshot_name>/nodes/<node_name>/interfaces", methods=["GET"])
+def api_node_interface_list(network_name, snapshot_name, node_name):
+    """
+    get node interfaces
+    returns
+    * a list of {node, interface, list of address}
+    """
+    bf = Session(host=BATFISH_HOST)
+    network = bf.set_network(network_name)
+    snapshot = bf.set_snapshot(snapshot_name)
+    interface_props = bf.q.interfaceProperties(nodes=node_name).answer().frame()
+    res = []
+    for index, row in interface_props.iterrows():
+        res.append(
+            {
+                "node": row["Interface"].hostname,
+                "interface": row["Interface"].interface,
+                "addresses": list(map(lambda x: x[: x.find("/")], row["All_Prefixes"])),
+            }
+        )
+    return jsonify(res)
+
+@app.route("/api/networks/<network_name>/snapshots/<snapshot_name>/nodes/<node_name>/traceroute", methods=["GET"])
+def api_node_traceroute(network_name, snapshot_name, node_name):
+    """
+    traceroute from this interface
+    query params:
+    * interface: insterface name // REST resource name is hard to write "ge-0/0/0.0"
+    * destination: destination IP
+    returns:
+    * a traceroute response
+    """
+    bf = Session(host=BATFISH_HOST)
+    result = _traceroute(
+        bf = bf,
+        network = network_name,
+        snapshot = snapshot_name,
+        node_name = node_name,
+        intf = request.args["interface"],
+        intf_ip = get_interface_first_ip(network_name, snapshot_name, node_name, request.args["interface"], bf),
+        destination = request.args["destination"])
+    return jsonify(result["result"][0])
+
+# network
+def get_batfish_networks(bf: Optional[Session] = None) -> List[str]:
+    """
+    params:
+    * bf: optionsl: batfish session
+    returns:
+    * a list of network names (str)
+    """
+    if not bf:
+        bf = Session(host=BATFISH_HOST)
+    return bf.list_networks()
 
 @app.route("/api/networks", methods=["GET"])
-def get_network_list():
-    bf = Session(host=BATFISH_HOST)
-    return jsonify(bf.list_networks())
+def api_networks_list():
+    """
+    returns: a list of network names (str)
+    """
+    return jsonify(get_batfish_networks())
 
+# snapshot
+def get_batfish_snapshots(network_name: Optional[str] = None, bf: Optional[Session] = None) -> Dict[str,List[str]]:
+    """
+    params:
+    * network_name
+    returns: a dict of key: network_name (str) and value: a list of snapshot_names (str)
+    """
+    if not bf:
+        bf = Session(host=BATFISH_HOST)
+    ret = {}
+    if network_name:
+        bf.set_network(network_name)
+        return {network_name: bf.list_snapshots()}
+    else:
+        for network in bf.list_networks():
+            for name, snapshots in get_batfish_snapshots(network_name = network, bf = bf).items():
+                ret[name] = snapshots
+        return ret
 
-@app.route("/api/network/<network_name>/snapshots", methods=["GET"])
-def get_snapshot_list(network_name):
+@app.route("/api/snapshots", methods=["GET"])
+def api_snapshots_list():
+    """
+    returns: a dict of key: network_name (str) and value: a list of snapshot_names (str)
+    """
     bf = Session(host=BATFISH_HOST)
-    bf.set_network(network_name)
-    return jsonify({"network": network_name, "snapshots": bf.list_snapshots()})
+    return jsonify(get_batfish_snapshots(bf = bf))
+
+@app.route("/api/networks/<network_name>/snapshots", methods=["GET"])
+def api_networks_snapshots_list(network_name):
+    """
+    returns: a list of snapshot names (str) in specified network name
+    """
+    bf = Session(host=BATFISH_HOST)
+    return jsonify(get_batfish_snapshots(network_name = network_name, bf = bf)[network_name])
 
 
 @app.route("/api/linkdown_snapshots", methods=["POST"])
