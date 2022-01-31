@@ -7,6 +7,10 @@ from pathlib import Path
 from os import path, makedirs, link
 
 
+def find_all_l1topology_files(input_dir):
+    return sorted(glob.glob("%s/**/layer1_topology.json" % input_dir, recursive=True))
+
+
 def revers_edge(edge):
     return {"node1": edge["node2"], "node2": edge["node1"]}
 
@@ -31,9 +35,23 @@ def read_l1_topology_data(dir_path):
             sys.exit(1)
 
 
-def write_l1_topology_data(snapshot_dir_path, edges):
-    with open(path.join(snapshot_dir_path, "layer1_topology.json"), "w") as file:
+def write_l1_topology_data(batfish_dir_path, edges):
+    with open(path.join(batfish_dir_path, "layer1_topology.json"), "w") as file:
         json.dump({"edges": edges}, file, indent=2)
+
+
+def write_runtime_data(batfish_dir_path, metadata, input_snapshot_info):
+    runtime_data = {}
+    for edge in metadata["lost_edges"] + input_snapshot_info["lost_edges"]:
+        target_node = edge["node1"]["hostname"]
+        target_intf = edge["node1"]["interfaceName"]
+        if target_node not in runtime_data:
+            runtime_data[target_node] = {"interfaces": {}}
+        if target_intf not in runtime_data[target_node]["interfaces"]:
+            runtime_data[target_node]["interfaces"][target_intf] = {"lineUp": False}
+
+    with open(path.join(batfish_dir_path, "runtime_data.json"), "w") as file:
+        json.dump({"runtimeData": runtime_data}, file, indent=2)
 
 
 def snapshot_metadata(index, src_dir_path, dst_dir_path, edges, description):
@@ -110,6 +128,14 @@ def draw_off(l1topo, node, link_regexp):
     return {"lost_edges": l1topo_lost, "found_edges": l1topo_found}
 
 
+def find_snapshot_info(snapshot_dir):
+    snapshot_info_path = path.join(snapshot_dir, "snapshot_info.json")
+    if path.isfile(snapshot_info_path):
+        with open(snapshot_info_path, "r") as file:
+            return json.load(file)
+    return {"lost_edges": []}
+
+
 def make_snapshot_dir(
     index,
     input_snapshot_dir_path,
@@ -123,10 +149,12 @@ def make_snapshot_dir(
 ):
     output_snapshot_dir_path = path.join(output_snapshot_base_dir_path, output_snapshot_dir_name)
     output_snapshot_configs_dir_path = path.join(output_snapshot_dir_path, "configs")
+    output_snapshot_batfish_dir_path = path.join(output_snapshot_dir_path, "batfish")
     print("# output")
     print("# + snapshot base dir:  %s" % output_snapshot_base_dir_path)
     print("#   + snapshot dir: %s (%s)" % (output_snapshot_dir_path, output_snapshot_dir_name))
     print("#     + snapshot_configs dir: %s" % output_snapshot_configs_dir_path)
+    print("#     + snapshot_batfish dir: %s" % output_snapshot_batfish_dir_path)
 
     # draw-off layer1 topology data
     l1_topology_data_off = draw_off(l1_topology_data, node, link_re_str)
@@ -141,10 +169,13 @@ def make_snapshot_dir(
         return result_data
 
     # make configs directory and config files in output snap@shot directory
-    makedirs(output_snapshot_configs_dir_path, exist_ok=True)  # make dirs recursively
+    makedirs(output_snapshot_configs_dir_path, exist_ok=True)
     make_output_configs(input_snapshot_dir_path, output_snapshot_dir_path)
     # write data to layer1_topology.json in output snapshot directory
-    write_l1_topology_data(output_snapshot_dir_path, l1_topology_data_off["found_edges"])
+    makedirs(output_snapshot_batfish_dir_path, exist_ok=True)
+    write_l1_topology_data(output_snapshot_batfish_dir_path, l1_topology_data_off["found_edges"])
+    snapshot_info = find_snapshot_info(input_snapshot_dir_path)
+    write_runtime_data(output_snapshot_batfish_dir_path, metadata, snapshot_info)
     # write metadata
     write_snapshot_metadata(output_snapshot_dir_path, metadata)
 
@@ -160,14 +191,14 @@ def detect_snapshot_dir_path(l1topo_path):
 
 
 def make_linkdown_snapshots(input_snapshot_base, output_snapshot_base, node, link_regexp, dry_run):
-
     # input/output snapshot directory construction:
     # + snapshot_base_dir/
     #   + snapshot_dir/
     #     + configs/ (fixed, refer as "snapshot_configs_dir")
-    #     - layer1_topology.json (fixed name)
-
-    l1_topology_files = glob.glob("%s/**/layer1_topology.json" % path.expanduser(input_snapshot_base), recursive=True)
+    #     + batfish/
+    #       - layer1_topology.json (fixed name)
+    #       - runtime_data.json (fixed name)
+    l1_topology_files = find_all_l1topology_files(path.expanduser(input_snapshot_base))
     if len(l1_topology_files) != 1:
         print(
             "# Error: layer1_topology.json not found or found multiple in snapshot directory %s" % input_snapshot_base,
@@ -175,17 +206,17 @@ def make_linkdown_snapshots(input_snapshot_base, output_snapshot_base, node, lin
         )
         return {"result": "ERROR"}
 
+    # read layer1 topology data
+    l1_topology_data = read_l1_topology_data(path.dirname(l1_topology_files[0]))
+
     input_snapshot_dir_path = detect_snapshot_dir_path(l1_topology_files[0])
     input_snapshot_dir_name = path.basename(input_snapshot_dir_path)
     input_snapshot_configs_dir_path = path.join(path.dirname(l1_topology_files[0]), "configs")
     output_snapshot_base_dir_path = path.expanduser(output_snapshot_base)
     print("# input")
     print("# + snapshot base dir: %s" % input_snapshot_base)
-    print("#   + snapshot dir: %s (%s)" % (input_snapshot_configs_dir_path, input_snapshot_dir_name))
-    print("#     + snapshot config dir:  %s" % input_snapshot_configs_dir_path)
-
-    # read layer1 topology data
-    l1_topology_data = read_l1_topology_data(input_snapshot_dir_path)
+    print("#   + snapshot dir: %s (%s)" % (input_snapshot_dir_path, input_snapshot_dir_name))
+    print("#     + snapshot configs dir: %s" % input_snapshot_configs_dir_path)
 
     # clear output base directory if exists
     if path.isdir(output_snapshot_base_dir_path):
