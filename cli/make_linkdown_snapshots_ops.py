@@ -69,10 +69,17 @@ def write_snapshot_metadata(dst_dir_path, metadata):
         json.dump(metadata, file, indent=2)
 
 
+def is_endpoint_edge(edge):
+    endpoint_re = r"Region.*-Svr\d+"
+    n1, _, n2, _ = edge2tuple(edge)
+    return re.match(endpoint_re, n1, flags=re.IGNORECASE) or re.match(endpoint_re, n2, flags=re.IGNORECASE)
+
+
 def deduplicate_edges(edges):
     uniq_edges = []
     for edge in edges:
-        if next((e for e in uniq_edges if is_same_edge(e, edge)), None):
+        # ignore if the edge is endpoint-link or found same (reverse) link in uniq_edges
+        if is_endpoint_edge(edge) or next((e for e in uniq_edges if is_same_edge(e, edge)), None):
             continue
         uniq_edges.append(edge)
     return uniq_edges
