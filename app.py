@@ -256,24 +256,22 @@ def post_linkdown_snapshots():
     return jsonify(resp)
 
 
-@app.route("/api/register_snapshots", methods=["POST"])
-def post_snapshots_to_bf():
+@app.route("/api/networks/<network_name>", methods=["POST"])
+def post_snapshots_to_bf(network_name):
     req = request.json
-    network = req["network"]
     input_snapshot_base = req["input_snapshot_base"]
-    app.logger.debug("post_snapshot_to_bf: nw=%s, in=%s" % (network, input_snapshot_base))
-    resp = rso.register_snapshots_to_bf(BATFISH_HOST, network, input_snapshot_base)
+    app.logger.debug("post_snapshot_to_bf: nw=%s, in=%s" % (network_name, input_snapshot_base))
+    resp = rso.register_snapshots_to_bf(BATFISH_HOST, network_name, input_snapshot_base)
     return jsonify(resp)
 
 
-@app.route("/api/queries", methods=["POST"])
-def post_queries():
+@app.route("/api/networks/<network_name>/queries", methods=["POST"])
+def post_queries(network_name):
     req = request.json
-    network = req["network"]
     query = req["query"] if "query" in req else None
     configs_dir = req["configs_dir"] if "configs_dir" in req else "configs"
     models_dir = req["models_dir"] if "models_dir" in req else "models"
-    resp = eqo.exec_queries(BATFISH_HOST, network, query, configs_dir, models_dir)
+    resp = eqo.exec_queries(BATFISH_HOST, network_name, query, configs_dir, models_dir)
     return jsonify(resp)
 
 
