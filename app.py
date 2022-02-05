@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 from pybatfish.client.session import Session
@@ -12,8 +13,9 @@ from typing import List, Dict, Optional
 
 app = Flask(__name__)
 logging.basicConfig(level=logging.WARNING)
-BATFISH_HOST = os.environ["BATFISH_HOST"] or "localhost"
+BATFISH_HOST = os.environ["BATFISH_HOST"] if "BATFISH_HOST" in os.environ else "localhost"
 ORIGINAL_NETWORK = "pushed_configs"
+CONFIGS_DIR = os.environ["MDDO_CONFIGS_DIR"] if "MDDO_CONFIGS_DIR" in os.environ else "./configs"
 set_pybf_loglevel("warning")
 
 
@@ -38,6 +40,24 @@ def _rec_dict(obj):
         )
     else:
         return obj
+
+
+def _snapshot_info(network, snapshot):
+    snapshot_dir_path = os.path.join(CONFIGS_DIR, network, snapshot)
+    snapshot_info_path = os.path.join(snapshot_dir_path, "snapshot_info.json")
+    if not os.path.isfile(snapshot_info_path):
+        app.logger.info("snapshot_info not found in %s" % snapshot_dir_path)
+        empty_snapshot_info = {
+            "index": -1,
+            "lost_edges": [],
+            "original_snapshot_path": "",
+            "snapshot_path": snapshot_dir_path,
+            "description": ""
+        }
+        return empty_snapshot_info
+
+    with open(snapshot_info_path, "r") as file:
+        return json.load(file)
 
 
 def _traceroute(bf, node_name, intf, intf_ip, destination, network, snapshot):
@@ -67,6 +87,7 @@ def _traceroute(bf, node_name, intf, intf_ip, destination, network, snapshot):
         "network": network,
         "snapshot": snapshot,
         "result": res,
+        "snapshot_info": _snapshot_info(network, snapshot)
     }
 
 
@@ -177,7 +198,7 @@ def api_node_traceroute(network_name, snapshot_name, node_name):
         intf_ip=get_interface_first_ip(network_name, snapshot_name, node_name, request.args["interface"], bf),
         destination=request.args["destination"],
     )
-    return jsonify(result["result"][0])
+    return jsonify(result)
 
 
 # network
