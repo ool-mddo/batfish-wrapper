@@ -11,7 +11,7 @@ def find_all_l1topology_files(input_dir):
     return sorted(glob.glob("%s/**/layer1_topology.json" % input_dir, recursive=True))
 
 
-def revers_edge(edge):
+def reverse_edge(edge):
     return {"node1": edge["node2"], "node2": edge["node1"]}
 
 
@@ -20,7 +20,7 @@ def is_same_edge(edge1, edge2):
     # probably, the comparison condition are too strict.
     # Be careful if you have mixed interface expression (long/short name, upper/lower case)
     # It might be better to use "DeepDiff" (ignore-case compare etc)
-    return edge1 == edge2 or revers_edge(edge1) == edge2
+    return edge1 == edge2 or reverse_edge(edge1) == edge2
 
 
 def read_l1_topology_data(dir_path):
@@ -40,9 +40,9 @@ def write_l1_topology_data(batfish_dir_path, edges):
         json.dump({"edges": edges}, file, indent=2)
 
 
-def write_runtime_data(batfish_dir_path, metadata, input_snapshot_info):
+def write_runtime_data(batfish_dir_path, snapshot_info):
     runtime_data = {}
-    for edge in metadata["lost_edges"] + input_snapshot_info["lost_edges"]:
+    for edge in snapshot_info["lost_edges"]:
         target_node = edge["node1"]["hostname"]
         target_intf = edge["node1"]["interfaceName"]
         if target_node not in runtime_data:
@@ -54,7 +54,7 @@ def write_runtime_data(batfish_dir_path, metadata, input_snapshot_info):
         json.dump({"runtimeData": runtime_data}, file, indent=2)
 
 
-def snapshot_metadata(index, src_dir_path, dst_dir_path, edges, description):
+def make_snapshot_info(index, src_dir_path, dst_dir_path, edges, description):
     return {
         "index": index,
         "lost_edges": edges,
@@ -64,22 +64,15 @@ def snapshot_metadata(index, src_dir_path, dst_dir_path, edges, description):
     }
 
 
-def write_snapshot_metadata(dst_dir_path, metadata):
+def write_snapshot_info(dst_dir_path, metadata):
     with open(path.join(dst_dir_path, "snapshot_info.json"), "w") as file:
         json.dump(metadata, file, indent=2)
-
-
-def is_endpoint_edge(edge):
-    endpoint_re = r"Region.*-Svr\d+"
-    n1, _, n2, _ = edge2tuple(edge)
-    return re.match(endpoint_re, n1, flags=re.IGNORECASE) or re.match(endpoint_re, n2, flags=re.IGNORECASE)
 
 
 def deduplicate_edges(edges):
     uniq_edges = []
     for edge in edges:
-        # ignore if the edge is endpoint-link or found same (reverse) link in uniq_edges
-        if is_endpoint_edge(edge) or next((e for e in uniq_edges if is_same_edge(e, edge)), None):
+        if next((e for e in uniq_edges if is_same_edge(e, edge)), None):
             continue
         uniq_edges.append(edge)
     return uniq_edges
@@ -143,6 +136,11 @@ def find_snapshot_info(snapshot_dir):
     return {"lost_edges": []}
 
 
+def accumulate_snapshot_info(input_snapshot_info, metadata):
+    metadata["lost_edges"].extend(input_snapshot_info["lost_edges"])
+    return metadata
+
+
 def make_snapshot_dir(
     index,
     input_snapshot_dir_path,
@@ -165,11 +163,15 @@ def make_snapshot_dir(
 
     # draw-off layer1 topology data
     l1_topology_data_off = draw_off(l1_topology_data, node, link_re_str)
-    metadata = snapshot_metadata(
+    snapshot_info = make_snapshot_info(
         index, input_snapshot_dir_path, output_snapshot_dir_path, l1_topology_data_off["lost_edges"], description
     )
+    # if input (origin) snapshot has snapshot_info (draw-off node/links),
+    # then accumulate its lost edges data
+    input_snapshot_info = find_snapshot_info(input_snapshot_dir_path)
+    snapshot_info = accumulate_snapshot_info(input_snapshot_info, snapshot_info)
 
-    result_data = {"snapshot_info": metadata}
+    result_data = {"snapshot_info": snapshot_info}
     if dry_run:
         for edge in l1_topology_data_off["lost_edges"]:
             print("%s[%s] -> %s[%s]" % edge2tuple(edge))
@@ -181,10 +183,9 @@ def make_snapshot_dir(
     # write data to layer1_topology.json in output snapshot directory
     makedirs(output_snapshot_batfish_dir_path, exist_ok=True)
     write_l1_topology_data(output_snapshot_batfish_dir_path, l1_topology_data_off["found_edges"])
-    snapshot_info = find_snapshot_info(input_snapshot_dir_path)
-    write_runtime_data(output_snapshot_batfish_dir_path, metadata, snapshot_info)
-    # write metadata
-    write_snapshot_metadata(output_snapshot_dir_path, metadata)
+    # write runtime_data and snapshot_info (both have equivalent lost-edges information)
+    write_runtime_data(output_snapshot_batfish_dir_path, snapshot_info)
+    write_snapshot_info(output_snapshot_dir_path, snapshot_info)
 
     return result_data
 
@@ -215,7 +216,8 @@ def make_linkdown_snapshots(input_snapshot_base, output_snapshot_base, node, lin
 
     # read layer1 topology data
     l1_topology_data = read_l1_topology_data(path.dirname(l1_topology_files[0]))
-
+    # The layer1_topology.json can be found either in the snapshot directory or in the snapshot/batfish directory.
+    # So it needs to identify the location and identify the snapshot directory.
     input_snapshot_dir_path = detect_snapshot_dir_path(l1_topology_files[0])
     input_snapshot_dir_name = path.basename(input_snapshot_dir_path)
     input_snapshot_configs_dir_path = path.join(path.dirname(l1_topology_files[0]), "configs")

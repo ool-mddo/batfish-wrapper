@@ -52,7 +52,7 @@ def _snapshot_info(network, snapshot):
             "lost_edges": [],
             "original_snapshot_path": "",
             "snapshot_path": snapshot_dir_path,
-            "description": ""
+            "description": "",
         }
         return empty_snapshot_info
 
@@ -60,22 +60,42 @@ def _snapshot_info(network, snapshot):
         return json.load(file)
 
 
-def _traceroute(bf, node_name, intf, intf_ip, destination, network, snapshot):
+def _is_disabled_in_snapshot(snapshot_info, node_name, intf_name):
+    for lost_edge in snapshot_info["lost_edges"]:
+        for node_key in ["node1", "node2"]:
+            edge = lost_edge[node_key]
+            # NOTE: node names in snapshot-info are case-sensitive
+            if edge["hostname"].lower() == node_name.lower() and edge["interfaceName"] == intf_name:
+                return True
+    return False
+
+
+def _traceroute(bf, node_name, intf_name, intf_ip, destination, network, snapshot):
     # app.logger.debug("_traceroute: node=%s intf=%s intf_ip=%s dst=%s nw=%s ss=%s" % (
-    #     node_name, intf, intf_ip, destination, network, snapshot
+    #     node_name, intf_name, intf_ip, destination, network, snapshot
     # ))
+    snapshot_info = _snapshot_info(network, snapshot)
+    if _is_disabled_in_snapshot(snapshot_info, node_name, intf_name):
+        app.logger.info("traceroute: source %s[%s] is disabled in %s/%s" % (node_name, intf_name, network, snapshot))
+        return {
+            "network": network,
+            "snapshot": snapshot,
+            "result": [{"Flow": {}, "Traces": [{"disposition": "DISABLED", "hops": []}]}],
+            "snapshot_info": snapshot_info,
+        }
+
     bf.set_network(name=network)
     bf.set_snapshot(name=snapshot)
     frame = (
         bf.q.traceroute(
-            startLocation=f"@enter({node_name}[{intf}])",
+            startLocation=f"@enter({node_name}[{intf_name}])",
             headers=HeaderConstraints(dstIps=destination, srcIps=intf_ip),
         )
         .answer()
         .frame()
     )
-    res = []
 
+    res = []
     for index, row in frame.iterrows():
         res.append(
             {
@@ -83,12 +103,8 @@ def _traceroute(bf, node_name, intf, intf_ip, destination, network, snapshot):
                 "Traces": _rec_dict(row["Traces"]),
             }
         )
-    return {
-        "network": network,
-        "snapshot": snapshot,
-        "result": res,
-        "snapshot_info": _snapshot_info(network, snapshot)
-    }
+
+    return {"network": network, "snapshot": snapshot, "result": res, "snapshot_info": snapshot_info}
 
 
 def ip_of_intf(bf, node_name, intf):
@@ -194,7 +210,7 @@ def api_node_traceroute(network_name, snapshot_name, node_name):
         network=network_name,
         snapshot=snapshot_name,
         node_name=node_name,
-        intf=request.args["interface"],
+        intf_name=request.args["interface"],
         intf_ip=get_interface_first_ip(network_name, snapshot_name, node_name, request.args["interface"], bf),
         destination=request.args["destination"],
     )
