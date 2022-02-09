@@ -3,7 +3,7 @@ import logging
 import os
 from pybatfish.client.session import Session
 from pybatfish.datamodel.flow import HeaderConstraints
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, abort
 from cli.bf_loglevel import set_pybf_loglevel
 import cli.make_linkdown_snapshots_ops as lso
 import cli.register_snapshots_ops as rso
@@ -147,8 +147,14 @@ def api_node_list(network_name, snapshot_name):
     * a list of node names (str)
     """
     bf = Session(host=BATFISH_HOST)
-    bf.set_network(name=network_name)
-    bf.set_snapshot(name=snapshot_name)
+    try:
+        bf.set_network(name=network_name)
+    except ValueError:
+        abort(404, f"network_name: ``{network_name}'' is not found")
+    try:
+        bf.set_snapshot(name=snapshot_name)
+    except ValueError:
+        abort(404, f"snapshot_name: ``{snapshot_name}'' is not found")
     node_props = bf.q.nodeProperties().answer().frame()
     res = []
     for index, row in node_props.iterrows():
