@@ -9,13 +9,13 @@ import cli.make_linkdown_snapshots_ops as lso
 import cli.register_snapshots_ops as rso
 import cli.exec_queries_ops as eqo
 
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, TypedDict
 
 app = Flask(__name__)
 logging.basicConfig(level=logging.WARNING)
-BATFISH_HOST = os.environ["BATFISH_HOST"] if "BATFISH_HOST" in os.environ else "localhost"
+BATFISH_HOST = os.environ.get("BATFISH_HOST", "localhost")
 ORIGINAL_NETWORK = "pushed_configs"
-CONFIGS_DIR = os.environ["MDDO_CONFIGS_DIR"] if "MDDO_CONFIGS_DIR" in os.environ else "./configs"
+CONFIGS_DIR = os.environ.get("MDDO_CONFIGS_DIR", "./configs")
 set_pybf_loglevel("warning")
 
 
@@ -41,8 +41,20 @@ def _rec_dict(obj):
     else:
         return obj
 
+class SnapshotInfoDict(TypedDict):
+    index: int
+    lost_edges: List[Dict[str, str]]  # TODO: define edge type
+    original_snapshot_path: str
+    snapshot_path: str
+    description: str
 
-def _snapshot_info(network, snapshot):
+def _snapshot_info(network: str, snapshot: str) -> SnapshotInfoDict:
+    """
+    get snapshot metadata
+    Returns:
+    * a SnapshotInfoDict
+      * if either network or snapshot is not valid, that is fixed value
+    """
     snapshot_dir_path = os.path.join(CONFIGS_DIR, network, snapshot)
     snapshot_info_path = os.path.join(snapshot_dir_path, "snapshot_info.json")
     if not os.path.isfile(snapshot_info_path):
@@ -60,7 +72,10 @@ def _snapshot_info(network, snapshot):
         return json.load(file)
 
 
-def _is_disabled_in_snapshot(snapshot_info, node_name, intf_name):
+def _is_disabled_intf(snapshot_info: SnapshotInfoDict, node_name: str, intf_name: str) -> bool:
+    """
+    check whether the interface is disabled or not in this snapshot
+    """
     for lost_edge in snapshot_info["lost_edges"]:
         for node_key in ["node1", "node2"]:
             edge = lost_edge[node_key]
@@ -75,7 +90,7 @@ def _traceroute(bf, node_name, intf_name, intf_ip, destination, network, snapsho
     #     node_name, intf_name, intf_ip, destination, network, snapshot
     # ))
     snapshot_info = _snapshot_info(network, snapshot)
-    if _is_disabled_in_snapshot(snapshot_info, node_name, intf_name):
+    if _is_disabled_intf(snapshot_info, node_name, intf_name):
         app.logger.info("traceroute: source %s[%s] is disabled in %s/%s" % (node_name, intf_name, network, snapshot))
         return {
             "network": network,
@@ -107,17 +122,10 @@ def _traceroute(bf, node_name, intf_name, intf_ip, destination, network, snapsho
     return {"network": network, "snapshot": snapshot, "result": res, "snapshot_info": snapshot_info}
 
 
-def ip_of_intf(bf, node_name, intf):
-    # TODO: error if the node and/or interface does not exists in a snapshot...
-    bf.set_network(ORIGINAL_NETWORK)
-    bf.set_snapshot(index=0)
-    intf_ip_prefix = (
-        bf.q.interfaceProperties(nodes=node_name, interfaces=intf).answer().frame().to_dict()["All_Prefixes"][0][0]
-    )
-    return intf_ip_prefix[: intf_ip_prefix.find("/")]
-
-
 def get_interface_first_ip(network: str, snapshot: str, node: str, interface: str, bf: Optional[Session] = None) -> str:
+    """
+    get ip address (without CIDR) of node_name and interface
+    """
     if not bf:
         bf = Session(host=BATFISH_HOST)
     bf.set_network(name=network)
