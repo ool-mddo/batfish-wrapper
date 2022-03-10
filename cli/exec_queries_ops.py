@@ -14,6 +14,7 @@ BF_QUERY_DICT = {
         nodes=".*",
         properties=", ".join(
             [
+                "Active",
                 "VRF",
                 "Primary_Address",
                 "Access_VLAN",
