@@ -16,7 +16,7 @@ pip3 install -r requirements.txt
 python3 app.py
 ```
 
-It will up at `http;//localhost:5000/`
+It will up at `http://localhost:5000/`
 
 ## with Batfish
 
