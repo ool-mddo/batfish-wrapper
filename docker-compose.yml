@@ -7,15 +7,10 @@ services:
       - "9996:9996"
       - "9997:9997"
   batfish-wrapper:
-    build:
-      context: .
-      dockerfile: ./Dockerfile
-    image: batfish-wrapper
+    image: "ghcr.io/ool-mddo/batfish-wrapper:main" 
     environment:
       BATFISH_HOST: batfish
     ports:
       - "5000:5000"
-    volumes:
-      - .:/batfish-wrapper
     depends_on:
       - batfish
