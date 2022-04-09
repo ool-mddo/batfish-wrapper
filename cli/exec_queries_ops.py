@@ -1,9 +1,8 @@
 import json
 import shutil
-import sys
-from os import path, makedirs
 import pandas as pd
-from pybatfish.client.session import Session
+from os import path, makedirs
+
 
 # for batfish
 BF_QUERY_DICT = {
@@ -32,7 +31,7 @@ BF_QUERY_DICT = {
     "sw_vlan_props": lambda bf: bf.q.switchedVlanProperties(nodes=".*"),
 }
 # other data source
-OTHER_QUERY_DICT = {"edges_layer1": lambda in_dir: convert_l1topology_to_csv(in_dir)}
+OTHER_QUERY_DICT = {"edges_layer1": lambda bfreg, network, snapshot: bfreg.l1topology_to_df(network, snapshot)}
 
 
 def save_df_as_csv(dataframe, csv_file_name):
@@ -40,21 +39,9 @@ def save_df_as_csv(dataframe, csv_file_name):
         outfile.write(dataframe.to_csv())
 
 
-def copy_snapshot_info(snapshot_dir, csv_dir):
-    snapshot_info_name = "snapshot_info.json"
-    snapshot_info_path = path.join(snapshot_dir, snapshot_info_name)
-    if not path.exists(snapshot_info_path):
-        return {}
-
-    print("# Found %s, copy it to %s" % (snapshot_info_path, csv_dir))
-    shutil.copyfile(snapshot_info_path, path.join(csv_dir, snapshot_info_name))
-    with open(snapshot_info_path, "r") as file:
-        snapshot_info = json.load(file)
-    return snapshot_info
-
-
-def exec_bf_query(bf_session, snapshot_name, query_dict, csv_dir):
-    bf_session.set_snapshot(snapshot_name)
+def exec_bf_query(bf_session, network, snapshot, query_dict, csv_dir):
+    bf_session.set_network(network)
+    bf_session.set_snapshot(snapshot.replace("/", "_"))
     results = []
     # exec query
     for query in query_dict:
@@ -69,42 +56,24 @@ def snapshot_path(configs_dir, network_name, snapshot_name):
     return path.join(configs_dir, network_name, *snapshot_name.split("__"))
 
 
-def exec_other_query(query_dict, snapshot_dir, csv_dir):
+def exec_other_query(bfreg, network, snapshot, query_dict, csv_dir):
     results = []
     for query in query_dict:
         print("# Exec Other Query = %s" % query)
         csv_file_path = path.join(csv_dir, query + ".csv")
-        save_df_as_csv(query_dict[query](snapshot_dir), csv_file_path)
+        save_df_as_csv(query_dict[query](bfreg, network, snapshot), csv_file_path)
         results.append({"query": f"other/{query}", "file": csv_file_path})
     return results
 
 
-def edges_to_dataframe(edges):
-    # hostname will be lower-case in batfish output
-    return pd.DataFrame(
-        {
-            "Interface": map(
-                lambda e: "%s[%s]" % (e["node1"]["hostname"].lower(), e["node1"]["interfaceName"]),
-                edges,
-            ),
-            "Remote_Interface": map(
-                lambda e: "%s[%s]" % (e["node2"]["hostname"].lower(), e["node2"]["interfaceName"]),
-                edges,
-            ),
-        }
-    )
+def save_snapshot_pattern(status, output_dir):
+    if "snapshot_pattern" not in status or status["snapshot_pattern"] is None:
+        return
+    with open(path.join(output_dir, "snapshot_pattern.json"), "w") as outfile:
+        json.dump(status["snapshot_pattern"], outfile, indent=2)
 
 
-def convert_l1topology_to_csv(snapshot_dir):
-    l1topo_path = path.join(snapshot_dir, "layer1_topology.json")
-    if not path.exists(l1topo_path):
-        l1topo_path = path.join(snapshot_dir, "batfish", "layer1_topology.json")
-    with open(l1topo_path, "r") as file:
-        l1topology_data = json.load(file)
-    return edges_to_dataframe(l1topology_data["edges"])
-
-
-def exec_queries(batfish, target_network, target_query, configs_dir, models_dir):
+def exec_queries(bfreg, network, snapshot, query, configs_dir, models_dir):
     # print-omit avoidance
     pd.set_option("display.width", 300)
     pd.set_option("display.max_columns", 20)
@@ -113,54 +82,49 @@ def exec_queries(batfish, target_network, target_query, configs_dir, models_dir)
     # limiting target query when using --query arg
     bf_query_dict = BF_QUERY_DICT
     other_query_dict = OTHER_QUERY_DICT
-    if target_query:
-        bf_query_dict = {target_query: BF_QUERY_DICT[target_query]} if target_query in BF_QUERY_DICT else {}
-        other_query_dict = {target_query: OTHER_QUERY_DICT[target_query]} if target_query in OTHER_QUERY_DICT else {}
+    if query:
+        bf_query_dict = {query: BF_QUERY_DICT[query]} if query in BF_QUERY_DICT else {}
+        other_query_dict = {query: OTHER_QUERY_DICT[query]} if query in OTHER_QUERY_DICT else {}
 
-    # batfish session definition
-    bf = Session(host=batfish)
+    input_dir = snapshot_path(configs_dir, network, snapshot)
+    output_dir = snapshot_path(models_dir, network, snapshot)
+    print("# * Network/snapshot   : %s / %s" % (network, snapshot))
+    print("#   Input snapshot dir : %s" % input_dir)
+    print("#   Output csv     dir : %s" % output_dir)
+    result = {
+        "network": network,
+        "snapshot": snapshot,
+        "snapshot_dir": input_dir,
+        "models_dir": output_dir,
+        "queries": [],
+    }
 
-    if target_network:
-        networks = list(filter(lambda n: n == target_network, bf.list_networks()))
-    else:
-        networks = bf.list_networks()
+    # clear output dir if exists
+    models_snapshot_dir = path.join(models_dir, network, snapshot)
+    if path.isdir(models_snapshot_dir):
+        shutil.rmtree(models_snapshot_dir)
 
-    # target network is not found in batfish, or batfish does not have any networks
-    if not networks:
-        if target_network:
-            print(
-                "Error: Network %s not found in batfish" % (target_network if target_network else None), file=sys.stderr
-            )
-        else:
-            print("Warning: batfish does not have networks", file=sys.stderr)
+    # make models from snapshot
+    makedirs(output_dir, exist_ok=True)
+    status = bfreg.register_snapshot(network, snapshot, overwrite=True)
+    result["queries"].extend(exec_bf_query(bfreg.bf_session(), network, snapshot, bf_query_dict, output_dir))
+    result["queries"].extend(exec_other_query(bfreg, network, snapshot, other_query_dict, output_dir))
+    result["snapshot_pattern"] = status["snapshot_pattern"]
+    save_snapshot_pattern(status, output_dir)
 
-    for network in networks:
-        # clear output dir if exists
-        models_snapshot_base_dir = path.join(models_dir, network)
-        if path.isdir(models_snapshot_base_dir):
-            shutil.rmtree(models_snapshot_base_dir)
+    return result
 
-        results = []
-        bf.set_network(network)
-        for snapshot in sorted(bf.list_snapshots()):
 
-            input_dir = snapshot_path(configs_dir, network, snapshot)
-            output_dir = snapshot_path(models_dir, network, snapshot)
-            print("# * network/snapshot   : %s / %s" % (network, snapshot))
-            print("#   input snapshot dir : %s" % input_dir)
-            print("#   output csv     dir : %s" % output_dir)
-            result = {
-                "network": network,
-                "snapshot": snapshot,
-                "snapshot_dir": input_dir,
-                "models_dir": output_dir,
-                "queries": [],
-            }
-            # make models from snapshot
-            makedirs(output_dir, exist_ok=True)
-            result["queries"].extend(exec_bf_query(bf, snapshot, bf_query_dict, output_dir))
-            result["queries"].extend(exec_other_query(other_query_dict, input_dir, output_dir))
-            result["snapshot_info"] = copy_snapshot_info(input_dir, output_dir)
-            results.append(result)
+def exec_queries_for_all_snapshots(bfreg, network, query, configs_dir, models_dir):
+    # clear output dir if exists
+    models_snapshot_base_dir = path.join(models_dir, network)
+    if path.isdir(models_snapshot_base_dir):
+        shutil.rmtree(models_snapshot_base_dir)
 
-        return results
+    results = []
+    for snapshot in bfreg.snapshots_in_network(network):
+        snapshot_name = path.join(*snapshot[1:])
+        print("# ---")
+        print("# For all snapshots: %s / %s" % (network, snapshot_name))
+        results.append(exec_queries(bfreg, network, snapshot_name, query, configs_dir, models_dir))
+    return results
