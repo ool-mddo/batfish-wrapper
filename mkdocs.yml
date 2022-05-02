@@ -1,0 +1,27 @@
+site_name: Batfish-wrapper
+
+theme:
+  name: "material"
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          setup_commands:
+            - import sys
+            - import os
+            - from unittest.mock import MagicMock as mock
+            - sys.path.insert(0, os.path.abspath('./src/bfwrapper'))
+nav:
+  - Home: index.md
+  - Batfish:
+    - BatfishRegistrantBase: bf_registrant_base_ref.md
+    - BatfishRegistrant: bf_registrant_ref.md
+    - BatfishQueryThrower: bf_query_thrower_ref.md
+  - Topology data:
+    - L1TopologyOperator: l1topology_operator_ref.md
+    - SimulationPatternGenerator: simulation_pattern_generator_ref.md
+  - Data structure:
+    - L1TopologyEdge: l1topology_edge_ref.md
+    - RegisterStatus: register_status_ref.md
+    - SnapshotPattern: snapshot_pattern_ref.md

@@ -1,8 +1,7 @@
 import argparse
 import os
-from bf_loglevel import set_pybf_loglevel
-import exec_queries_ops as eqo
-from bf_registrant import BatfishRegistrant
+from bfwrapper.bf_loglevel import set_pybf_loglevel
+from bfwrapper.bf_query_thrower import BatfishQueryThrower, OTHER_QUERY_DICT, BF_QUERY_DICT
 
 if __name__ == "__main__":
     # defaults
@@ -16,7 +15,7 @@ if __name__ == "__main__":
     parser.add_argument("--snapshot", "-s", type=str, help="Specify a target snapshot name")
     parser.add_argument("--configs_dir", "-c", default=configs_dir, help="Configs directory for network snapshots")
     parser.add_argument("--models_dir", "-m", default=models_dir, help="Models directory to batfish output CSVs")
-    query_keys = list(eqo.OTHER_QUERY_DICT.keys()) + list(eqo.BF_QUERY_DICT.keys())
+    query_keys = list(OTHER_QUERY_DICT.keys()) + list(BF_QUERY_DICT.keys())
     parser.add_argument("--query", "-q", type=str, choices=query_keys, help="A Query to exec")
     log_levels = ["critical", "error", "warning", "info", "debug"]
     parser.add_argument("--log_level", type=str, default="warning", choices=log_levels, help="Log level")
@@ -24,10 +23,11 @@ if __name__ == "__main__":
 
     # set log level
     set_pybf_loglevel(args.log_level)
-    # batfish snapshot registrant
-    bfreg = BatfishRegistrant(args.batfish, args.configs_dir)
+    # batfish query thrower
+    # pylint: disable=too-many-function-args
+    bfqt = BatfishQueryThrower(args.batfish, args.configs_dir, args.models_dir)
     # exec queries
     if args.snapshot:
-        eqo.exec_queries(bfreg, args.network, args.snapshot, args.query, args.configs_dir, args.models_dir)
+        bfqt.exec_queries(args.network, args.snapshot, args.query)
     else:
-        eqo.exec_queries_for_all_snapshots(bfreg, args.network, args.query, args.configs_dir, args.models_dir)
+        bfqt.exec_queries_for_all_snapshots(args.network, args.query)

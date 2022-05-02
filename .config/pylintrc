@@ -1,0 +1,12 @@
+[MASTER]
+init-hook='import sys; sys.path.append("./src/bfwrapper")'
+
+[MESSAGE CONTROL]
+disable = missing-module-docstring, missing-class-docstring
+
+[DESIGN]
+max-args = 8
+min-public-methods = 0
+
+[FORMAT]
+max-line-length = 119

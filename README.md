@@ -7,13 +7,13 @@ Batfish wrapper for MDDO Project
 Install required packages
 
 ```shell
-pip3 install -r requirements.txt
+pip3 install -r requirements_prod.txt
 ```
 
 ## Run batfish-wrapper
 
 ```shell
-python3 app.py
+python3 src/app.py
 ```
 
 It will up at `http://localhost:5000/`
@@ -26,7 +26,7 @@ It will up at `http://localhost:5000/`
 
 ## REST API
 
-see. [app.py](./app.py)
+see. [app.py](./src/app.py)
 
 Parameters in examples:
 * network name : `pushed_configs`
@@ -78,7 +78,7 @@ curl -X GET "http://localhost:5000/api/networks/pushed_configs/snapshots/mddo_ne
 REST
 * POST `/api/networks/<network>/snapshots/<snapshot>/patterns`
   * `node`: [optional] draw-off (deactivate) target node
-  * `link_regesp`: [optional] draw-off (deactivate) interface name (regexp match)
+  * `interface_regexp`: [optional] draw-off (deactivate) interface name (regexp match)
 
 ```shell
 # without draw-off
@@ -86,13 +86,13 @@ curl -X POST -H "Content-Type: application/json" -d '{}'\
   http://localhost:5000/api/networks/pushed_configs/snapshots/mddo_network/patterns
 # draw-off regiona-pe01[ge-0/0/0]
 curl -X POST -H "Content-Type: application/json" \
-  -d '{"node": "regiona-pe01", "link_regexp": "ge-0/0/0"}' \
+  -d '{"node": "regiona-pe01", "interface_regexp": "ge-0/0/0"}' \
   http://localhost:5000/api/networks/pushed_configs/snapshots/mddo_network/patterns
 ```
 
 CLI
 ```shell
-python3 cli/cli/make_snapshot_patterns.py -n pushed_configs -s mddo_network -d regiona-pe01 -l "ge-0/0/0"
+python3 src/cli_make_snapshot_patterns.py -n pushed_configs -s mddo_network -d regiona-pe01 -l "ge-0/0/0"
 ```
 
 ### Exec batfish queries and save these result as csv files (local files)
@@ -115,9 +115,9 @@ CLI
 
 ```shell
 # all snapshots
-python3 cli/exec_queries.py -n pushed_configs
+python3 src/cli_exec_queries.py -n pushed_configs
 # single snapshot
-python3 cli/exec_queries.py -n pushed_configs -s mddo_network
+python3 src/cli_exec_queries.py -n pushed_configs -s mddo_network
 ```
 
 ### Register snapshot into batfish (for testing/debugging)
@@ -135,8 +135,28 @@ curl -X PUSH -H "Content-Type: application/json" -d '{"overwrite": true}'\
 
 ## Development
 
+### Setup
+
+```shell
+pip3 install -r requirements_dev.txt
+```
+
 ### Format code
 
 ```shell
-black *.py
+black src/*.py src/**/*.py
 ```
+
+### Lint
+
+```shell
+flake8 --statistics --config .config/flake8 src/
+pylint --rcfile .config/pylintrc src/*.py src/**/*.py
+```
+
+### Documents
+
+```shell
+mkdocs serve
+```
+and access `http://localhost:8000`
