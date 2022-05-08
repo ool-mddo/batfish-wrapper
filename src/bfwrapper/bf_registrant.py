@@ -87,20 +87,20 @@ class BatfishRegistrant(BatfishRegistrantBase):
             ret[bf_network] = self.bf_snapshots(bf_network)
         return ret
 
-    def get_snapshot_patterns(self, network: str, snapshot: str) -> List[SnapshotPatternDict]:
+    def get_snapshot_patterns(self, network: str, snapshot: str) -> [List[SnapshotPatternDict], SnapshotPatternDict]:
         """Get snapshot patterns
         Args:
             network (str): Network name
             snapshot (str): Snapshot name
         Returns:
-            List[SnapshotPatternDict]:
+            [List[SnapshotPatternDict], SnapshotPatternDict]: List for physical snapshot or Dict for logical snapshot
         """
         if self._is_physical_snapshot(network, snapshot):
             return [e.to_dict() for e in self._read_snapshot_patterns(network, snapshot)]
 
         # for logical snapshot
         pattern = self._find_snapshot_pattern(network, snapshot)
-        return [pattern.to_dict()] if pattern is not None else []
+        return pattern.to_dict() if pattern is not None else []
 
     # traceroute-query related functions
 

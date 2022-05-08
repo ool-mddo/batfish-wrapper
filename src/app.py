@@ -156,7 +156,7 @@ def get_snapshot_patterns(network: str, snapshot: str) -> Response:
     """
     app_logger.debug("get_snapshot_patterns, %s/%s", network, snapshot)
     snapshot_patterns = bfqt.get_snapshot_patterns(network, snapshot)
-    if len(snapshot_patterns) < 1:
+    if not snapshot_patterns:
         abort(404, f"snapshot-patterns is not found in {network}/{snapshot}")
     return jsonify(snapshot_patterns)
 
