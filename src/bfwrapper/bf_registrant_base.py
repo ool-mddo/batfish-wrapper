@@ -167,7 +167,7 @@ class BatfishRegistrantBase(L1TopologyOperatorBase):
             SnapshotPattern: Found snapshot pattern or None if not found
         """
         snapshot_patterns = self._read_snapshot_patterns(network, snapshot)
-        return next(filter(lambda s: s.target_snapshot_name == snapshot, snapshot_patterns), None)
+        return next((s for s in snapshot_patterns if s.target_snapshot_name == snapshot), None)
 
     def _is_physical_snapshot(self, network: str, snapshot: str) -> bool:
         """Test specified snapshot is physical or not
@@ -182,12 +182,10 @@ class BatfishRegistrantBase(L1TopologyOperatorBase):
             return path.exists(self._snapshot_dir(network, snapshot))
 
         # asked with batfish-stored snapshot name (safe-snapshot-name, ex: foo_bar)
-        physical_snapshots = list(
-            map(
-                lambda s: "/".join([s[0], self._safe_snapshot_name("/".join(s[1:]))]),
-                self._find_all_physical_snapshots(network),
-            )
-        )
+        physical_snapshots = [
+            "/".join([s[0], self._safe_snapshot_name("/".join(s[1:]))])
+            for s in self._find_all_physical_snapshots(network)
+        ]
         return f"{network}/{snapshot}" in physical_snapshots
 
     def _register_physical_snapshot(self, network: str, snapshot: str) -> RegisterStatus:
@@ -273,7 +271,7 @@ class BatfishRegistrantBase(L1TopologyOperatorBase):
         Returns:
             None
         """
-        unreg_snapshots = list(filter(lambda s: s != self._safe_snapshot_name(snapshot), self.bf_snapshots(network)))
+        unreg_snapshots = [s for s in self.bf_snapshots(network) if s != self._safe_snapshot_name(snapshot)]
         print(f"# - keep: {snapshot}, unregister: {unreg_snapshots}")
         for unreg_snapshot in unreg_snapshots:
             self.unregister_snapshot(network, unreg_snapshot)

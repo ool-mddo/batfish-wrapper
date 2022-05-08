@@ -45,6 +45,8 @@ class BatfishRegistrant(BatfishRegistrantBase):
             node (str): Node name
         Returns:
             pd.DataFrame: Query answer
+        Note:
+            Cannot respond for server (hosts defined node)
         """
         self.bf_session.set_network(network)
         self.bf_session.set_snapshot(snapshot)

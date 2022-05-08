@@ -55,7 +55,17 @@ class L1TopologyOperator(L1TopologyOperatorBase):
         print(f"# input : snapshot dir: {self.snapshot_dir_path}")
 
     @staticmethod
-    def filter_edges(edges: List[L1TopologyEdge], drawoff_edges: List[L1TopologyEdge]) -> List[L1TopologyEdge]:
+    def __find_edge_in(edge: L1TopologyEdge, edges: List[L1TopologyEdge]) -> [L1TopologyEdge, None]:
+        """Find edge in edges
+        Args:
+            edge (L1TopologyEdge): A edge to find
+            edges (List[L1TopologyEdge]): A list of edges
+        Returns:
+            [L1TopologyEdge, None]: Found edge or None if not found
+        """
+        return next((e for e in edges if edge.is_same_edge(e)), None)
+
+    def filter_edges(self, edges: List[L1TopologyEdge], drawoff_edges: List[L1TopologyEdge]) -> List[L1TopologyEdge]:
         """Remove specified edges (edge-pairs have the edge) from layer1 topology edges
         Args:
             edges (List[L1TopologyEdge]): Origin layer1 topology edges
@@ -63,11 +73,7 @@ class L1TopologyOperator(L1TopologyOperatorBase):
         Returns:
             List[L1TopologyEdge]: kept edges
         """
-        found_edges = []
-        for edge in edges:
-            if next((e for e in drawoff_edges if edge.is_same_edge(e)), None):
-                continue
-            found_edges.append(edge)
+        found_edges = [edge for edge in edges if not self.__find_edge_in(edge, drawoff_edges)]
         return found_edges
 
     @staticmethod
@@ -101,8 +107,7 @@ class L1TopologyOperator(L1TopologyOperatorBase):
                 print(f"Error: cannot read {l1topo_file} with: {err}", file=sys.stderr)
                 sys.exit(1)
 
-    @staticmethod
-    def _deduplicate_edges(edges: List[L1TopologyEdge]) -> List[L1TopologyEdge]:
+    def _deduplicate_edges(self, edges: List[L1TopologyEdge]) -> List[L1TopologyEdge]:
         """Deduplicate same edges
         Omit same direction link (edge-pair), [e1->e2, e2->e1] => [e1->e2]
         Args:
@@ -112,7 +117,8 @@ class L1TopologyOperator(L1TopologyOperatorBase):
         """
         uniq_edges = []
         for edge in edges:
-            if next((e for e in uniq_edges if edge.is_same_edge(e)), None):
-                continue
-            uniq_edges.append(edge)
+            # NOTE: uniq_edges is updated in loop (self-referenced)
+            if not self.__find_edge_in(edge, uniq_edges):
+                uniq_edges.append(edge)
+
         return uniq_edges

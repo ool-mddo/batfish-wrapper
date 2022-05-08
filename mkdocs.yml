@@ -10,7 +10,6 @@ plugins:
           setup_commands:
             - import sys
             - import os
-            - from unittest.mock import MagicMock as mock
             - sys.path.insert(0, os.path.abspath('./src/bfwrapper'))
 nav:
   - Home: index.md

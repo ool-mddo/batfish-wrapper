@@ -27,9 +27,7 @@ def get_node_list(network: str, snapshot: str) -> Response:
         Response: A list of node names (str)
     """
     node_props = bfqt.bf_node_list(network, snapshot)
-    res = []
-    for _index, row in node_props.iterrows():
-        res.append(row["Node"])
+    res = [row["Node"] for _i, row in node_props.iterrows()]
     return jsonify(res)
 
 
@@ -43,15 +41,14 @@ def get_interface_list(network: str, snapshot: str) -> Response:
         Response: A list of {node, interface, list of address}
     """
     interface_props = bfqt.bf_interface_list(network, snapshot)
-    res = []
-    for _index, row in interface_props.iterrows():
-        res.append(
-            {
-                "node": row["Interface"].hostname,
-                "interface": row["Interface"].interface,
-                "addresses": list(map(lambda x: x[: x.find("/")], row["All_Prefixes"])),
-            }
-        )
+    res = [
+        {
+            "node": row["Interface"].hostname,
+            "interface": row["Interface"].interface,
+            "addresses": [x[: x.find("/")] for x in row["All_Prefixes"]],
+        }
+        for _i, row in interface_props.iterrows()
+    ]
     return jsonify(res)
 
 
@@ -66,15 +63,14 @@ def get_node_interface_list(network: str, snapshot: str, node: str) -> Response:
         Response: A list of {node, interface, list of address}
     """
     interface_props = bfqt.bf_node_interface_list(network, snapshot, node)
-    res = []
-    for _index, row in interface_props.iterrows():
-        res.append(
-            {
-                "node": row["Interface"].hostname,
-                "interface": row["Interface"].interface,
-                "addresses": list(map(lambda x: x[: x.find("/")], row["All_Prefixes"])),
-            }
-        )
+    res = [
+        {
+            "node": row["Interface"].hostname,
+            "interface": row["Interface"].interface,
+            "addresses": [x[: x.find("/")] for x in row["All_Prefixes"]],
+        }
+        for _i, row in interface_props.iterrows()
+    ]
     return jsonify(res)
 
 
@@ -122,9 +118,12 @@ def get_networks_snapshots_list(network) -> Response:
     """Get a list of snapshots
     Returns:
          Response: a list of snapshot names (str) in specified network name
+    Note:
+         Query (GET) parameter:
+         * simulated: returns simulated snapshots
     """
     if "simulated" in request.args and request.args["simulated"]:
-        return jsonify(list(map(lambda t: "/".join(t[1:]), bfqt.snapshots_in_network(network))))
+        return jsonify(["/".join(s[1:]) for s in bfqt.snapshots_in_network(network)])
     return jsonify(bfqt.get_batfish_snapshots(network=network)[network])
 
 

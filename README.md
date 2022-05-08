@@ -45,9 +45,14 @@ curl -X GET http://localhost:5000/api/networks
 ```
 
 Get snapshots in a network
+* GET `/api/networks<network>/snapshots`
+  * `simulated`: [optional] returns all logical (simulated) snapshots defined in the network
+    even if these snapshots are not registered in batfish. (default: false)
 ```shell
 curl -X GET http://localhost:5000/api/networks/pushed_configs/snapshots
+curl -X GET http://localhost:5000/api/networks/pushed_configs/snapshots?simulated=true
 ```
+
 
 Get nodes in a snapshot
 ```shell
