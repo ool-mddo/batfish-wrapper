@@ -4,7 +4,7 @@ Definition of BatfishRegistrant class
 from typing import List, Dict, Optional, Any
 import pandas as pd
 from pybatfish.datamodel.flow import HeaderConstraints
-from bf_registrant_base import BatfishRegistrantBase
+from bf_registrant_base import BatfishRegistrantBase, SnapshotPattern
 from bf_wrapper_types import SnapshotPatternDict, TracerouteQueryStatus
 
 
@@ -45,15 +45,13 @@ class BatfishRegistrant(BatfishRegistrantBase):
             node (str): Node name
         Returns:
             pd.DataFrame: Query answer
-        Note:
-            Cannot respond for server (hosts defined node)
         """
         self.bf_session.set_network(network)
         self.bf_session.set_snapshot(snapshot)
         # pylint: disable=no-member
         return self.bf_session.q.interfaceProperties(nodes=node).answer().frame()
 
-    def _get_interface_first_ip(self, network: str, snapshot: str, node: str, interface: str) -> str:
+    def _get_interface_first_ip(self, network: str, snapshot: str, node: str, interface: str) -> [str, None]:
         """Get ip address (without CIDR) of node and interface
         Args:
             network (str): Network name
@@ -61,17 +59,23 @@ class BatfishRegistrant(BatfishRegistrantBase):
             node (str): Node name
             interface (str): Interface name
         Returns:
-            str: IP address (without netmask "/x")
+            [str, None]: IP address (without netmask "/x") or None if the interface doesn't have IP address
         """
         self.bf_session.set_network(name=network)
         self.bf_session.set_snapshot(name=snapshot)
-        intf_ip_prefix = (
+        intf_ip_prefix_list = (
             # pylint: disable=no-member
-            self.bf_session.q.interfaceProperties(nodes=node, interfaces=interface)
+            # NOTE: normalize node name
+            self.bf_session.q.interfaceProperties(nodes=node.lower(), interfaces=interface)
             .answer()
             .frame()
-            .to_dict()["All_Prefixes"][0][0]
+            .to_dict()["All_Prefixes"][0]
         )
+        if len(intf_ip_prefix_list) < 1:
+            # e.g. for layer2 interface, it does not have ip address
+            return None
+
+        intf_ip_prefix = intf_ip_prefix_list[0]
         return intf_ip_prefix[: intf_ip_prefix.find("/")]
 
     def get_batfish_snapshots(self, network: Optional[str] = None) -> Dict[str, List[str]]:
@@ -156,8 +160,54 @@ class BatfishRegistrant(BatfishRegistrantBase):
             for _index, row in frame.iterrows()
         ]
 
+    def _find_ip_addr_from_lost_edges(
+        self,
+        network: str,
+        snapshot: str,
+        snapshot_pattern: SnapshotPattern,
+        target_ip: str,
+    ) -> [str, None]:
+        """IP address list of lost_edge of the snapshot
+        Args:
+            network (str): Network name
+            snapshot (str): Snapshot name
+            snapshot_pattern (SnapshotPattern): Snapshot pattern
+            target_ip (str): IP address to find
+        Returns:
+            [str, None]: Found ip address or None if not found
+        """
+        ip_addrs = []
+        for edge in snapshot_pattern.lost_edges:
+            ip_addrs.append(self._get_interface_first_ip(network, snapshot, edge.node1.host, edge.node1.intf))
+            ip_addrs.append(self._get_interface_first_ip(network, snapshot, edge.node2.host, edge.node2.intf))
+        return next((ip for ip in ip_addrs if ip == target_ip), None)
+
+    @staticmethod
+    def _traceroute_result(
+        network: str, snapshot: str, traceroute_answer: List[Dict], snapshot_pattern: Optional[SnapshotPattern] = None
+    ) -> TracerouteQueryStatus:
+        """Traceroute result
+        Args:
+            network (str): Network name
+            snapshot (str): Snapshot name
+            traceroute_answer (List[Dict]): An answer of traceroute query
+            snapshot_pattern (SnapshotPattern): Snapshot pattern
+        Returns:
+            TracerouteQueryStatus: Query answer
+        """
+        return {
+            "network": network,
+            "snapshot": snapshot,
+            "result": traceroute_answer,
+            "snapshot_pattern": snapshot_pattern.to_dict() if snapshot_pattern is not None else None,
+        }
+
+    @staticmethod
+    def _disabled_traceroute_answer():
+        return [{"Flow": {}, "Traces": [{"disposition": "DISABLED", "hops": []}]}]
+
     def exec_traceroute_query(
-        self, network: str, snapshot: str, node: str, intf: str, destination: str, logger
+        self, network: str, snapshot: str, node: str, intf: str, destination: str
     ) -> TracerouteQueryStatus:
         """Query traceroute
         Args:
@@ -166,14 +216,9 @@ class BatfishRegistrant(BatfishRegistrantBase):
             node (str): Node name (source)
             intf (str): Interface name (source)
             destination (str): Traceroute destination
-            logger: Logger
         Returns:
             TracerouteQueryStatus: Query answer
         """
-        # app.logger.debug("_traceroute: node=%s intf=%s intf_ip=%s dst=%s nw=%s ss=%s" % (
-        #     node_name, intf_name, intf_ip, destination, network, snapshot
-        # ))
-
         # prepare snapshot
         status = self.register_snapshot(network, snapshot)
         snapshot_pattern = status.snapshot_pattern
@@ -181,21 +226,18 @@ class BatfishRegistrant(BatfishRegistrantBase):
         orig_snapshot = snapshot_pattern.orig_snapshot_name if snapshot_pattern is not None else snapshot
         intf_ip = self._get_interface_first_ip(network, orig_snapshot, node, intf)
 
-        # source node/interface is disabled?
-        if snapshot_pattern is not None and snapshot_pattern.owns_as_disabled_intf(node, intf):
-            logger.info(f"traceroute: source {node}[{intf}] is disabled in {network}/{snapshot}")
-            return {
-                "network": network,
-                "snapshot": snapshot,
-                "result": [{"Flow": {}, "Traces": [{"disposition": "DISABLED", "hops": []}]}],
-                "snapshot_pattern": snapshot_pattern.to_dict(),
-            }
+        # for logical snapshot
+        if snapshot_pattern is not None:
+            # source node/interface is disabled?
+            if snapshot_pattern.owns_as_disabled_intf(node, intf):
+                print(f"# traceroute: source {node}[{intf}] is disabled in {network}/{snapshot}")
+                return self._traceroute_result(network, snapshot, self._disabled_traceroute_answer(), snapshot_pattern)
+            # destination ip is disabled?
+            # NOTICE: if the network/snapshot has duplicated ip address, it cannot work fine, probably.
+            if self._find_ip_addr_from_lost_edges(network, snapshot, snapshot_pattern, destination):
+                print(f"# traceroute: destination {destination} is disabled in {network}/{snapshot}")
+                return self._traceroute_result(network, snapshot, self._disabled_traceroute_answer(), snapshot_pattern)
 
         # query traceroute
         answer = self._query_traceroute(network, snapshot, node, intf, intf_ip, destination)
-        return {
-            "network": network,
-            "snapshot": snapshot,
-            "result": answer,
-            "snapshot_pattern": snapshot_pattern.to_dict() if snapshot_pattern is not None else None,
-        }
+        return self._traceroute_result(network, snapshot, answer, snapshot_pattern)

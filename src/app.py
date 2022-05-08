@@ -90,7 +90,7 @@ def get_node_traceroute(network: str, snapshot: str, node: str) -> Response:
     """
     app_logger.info("api_node_traceroute: %s/%s/%s req=%s", network, snapshot, node, request.args)
     result = bfqt.exec_traceroute_query(
-        network, snapshot, node, request.args["interface"], request.args["destination"], app_logger
+        network, snapshot, node, request.args["interface"], request.args["destination"]
     )
     return jsonify(result)
 
