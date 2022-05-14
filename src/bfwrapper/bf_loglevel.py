@@ -1,8 +1,11 @@
 import logging
 
 
-def set_pybf_loglevel(log_level):
-    # set log level
+def set_pybf_loglevel(log_level: str) -> None:
+    """Set log level of pybatfish
+    Args:
+        log_level (str): Log level
+    """
     logger = logging.getLogger("pybatfish")
     if log_level == "critical":
         logger.setLevel(logging.CRITICAL)

@@ -1,0 +1,5 @@
+black >= 21.7b0
+flake8 >= 4.0.1
+mkdocs_material >= 8.2.13
+mkdocstrings >= 0.18.1
+pylint >= 2.13.8
