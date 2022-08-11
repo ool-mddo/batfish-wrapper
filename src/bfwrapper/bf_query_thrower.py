@@ -47,6 +47,9 @@ BF_QUERY_DICT: BfqDict = {
     ),
     "node_props": lambda bf: bf.q.nodeProperties(nodes=".*", properties=", ".join(["Configuration_Format"])),
     "sw_vlan_props": lambda bf: bf.q.switchedVlanProperties(nodes=".*"),
+    "ospf_proc_conf": lambda bf: bf.q.ospfProcessConfiguration(),
+    "ospf_intf_conf": lambda bf: bf.q.ospfInterfaceConfiguration(),
+    "ospf_area_conf": lambda bf: bf.q.ospfAreaConfiguration(),
 }
 # other data source
 OTHER_QUERY_DICT: OqDict = {"edges_layer1": lambda bfqt, network, snapshot: bfqt.l1topology_to_df(network, snapshot)}
