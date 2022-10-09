@@ -35,6 +35,7 @@ BF_QUERY_DICT: BfqDict = {
                 "Primary_Address",
                 "Access_VLAN",
                 "Allowed_VLANs",
+                "Encapsulation_VLAN",
                 "Switchport",
                 "Switchport_Mode",
                 "Switchport_Trunk_Encapsulation",
