@@ -51,6 +51,7 @@ BF_QUERY_DICT: BfqDict = {
     "ospf_intf_conf": lambda bf: bf.q.ospfInterfaceConfiguration(),
     "ospf_area_conf": lambda bf: bf.q.ospfAreaConfiguration(),
     "routes": lambda bf: bf.q.routes(protocols="static,connected,local"),
+    "named_structures": lambda bf: bf.q.namedStructures(),
 }
 # other data source
 OTHER_QUERY_DICT: OqDict = {"edges_layer1": lambda bfqt, network, snapshot: bfqt.l1topology_to_df(network, snapshot)}
