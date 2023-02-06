@@ -28,7 +28,6 @@ BF_QUERY_DICT: BfqDict = {
     # 'edges_layer1': lambda: bf.q.edges(edgeType='layer1'),
     # 'edges_layer3': lambda: bf.q.edges(edgeType='layer3'),
     "interface_props": lambda bf: bf.q.interfaceProperties(
-        nodes=".*",
         properties=", ".join(
             [
                 "Active",
@@ -36,6 +35,7 @@ BF_QUERY_DICT: BfqDict = {
                 "Primary_Address",
                 "Access_VLAN",
                 "Allowed_VLANs",
+                "Encapsulation_VLAN",
                 "Switchport",
                 "Switchport_Mode",
                 "Switchport_Trunk_Encapsulation",
@@ -45,8 +45,13 @@ BF_QUERY_DICT: BfqDict = {
             ]
         ),
     ),
-    "node_props": lambda bf: bf.q.nodeProperties(nodes=".*", properties=", ".join(["Configuration_Format"])),
-    "sw_vlan_props": lambda bf: bf.q.switchedVlanProperties(nodes=".*"),
+    "node_props": lambda bf: bf.q.nodeProperties(properties=", ".join(["Configuration_Format"])),
+    "sw_vlan_props": lambda bf: bf.q.switchedVlanProperties(),
+    "ospf_proc_conf": lambda bf: bf.q.ospfProcessConfiguration(),
+    "ospf_intf_conf": lambda bf: bf.q.ospfInterfaceConfiguration(),
+    "ospf_area_conf": lambda bf: bf.q.ospfAreaConfiguration(),
+    "routes": lambda bf: bf.q.routes(protocols="static,connected,local"),
+    "named_structures": lambda bf: bf.q.namedStructures(),
 }
 # other data source
 OTHER_QUERY_DICT: OqDict = {"edges_layer1": lambda bfqt, network, snapshot: bfqt.l1topology_to_df(network, snapshot)}
