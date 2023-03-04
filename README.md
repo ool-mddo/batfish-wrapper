@@ -22,7 +22,7 @@ It will up at `http://localhost:5000/`
 
 * `BATFISH_HOST`: specify batfish service (hostname)
 * `MDDO_CONFIGS_DIR`: batfish snapshot directory (default: `./configs`)
-* `MDDO_MODELS_DIR`: query result directory (default: `./models`)
+* `MDDO_QUERIES_DIR`: query result directory (default: `./queries`)
 
 ## REST API
 

@@ -11,13 +11,13 @@ app_logger = create_logger(app)
 logging.basicConfig(level=logging.WARNING)
 BATFISH_HOST = os.environ.get("BATFISH_HOST", "localhost")
 CONFIGS_DIR = os.environ.get("MDDO_CONFIGS_DIR", "./configs")
-MODELS_DIR = os.environ.get("MDDO_MODELS_DIR", "./models")
+QUERIES_DIR = os.environ.get("MDDO_QUERIES_DIR", "./queries")
 # pylint: disable=too-many-function-args
-bfqt = BatfishQueryThrower(BATFISH_HOST, CONFIGS_DIR, MODELS_DIR)
+bfqt = BatfishQueryThrower(BATFISH_HOST, CONFIGS_DIR, QUERIES_DIR)
 set_pybf_loglevel("warning")
 
 
-@app.route("/api/networks/<network>/snapshots/<snapshot>/nodes", methods=["GET"])
+@app.route("/batfish/<network>/<snapshot>/nodes", methods=["GET"])
 def get_node_list(network: str, snapshot: str) -> Response:
     """Get all node names
     Args:
@@ -31,7 +31,7 @@ def get_node_list(network: str, snapshot: str) -> Response:
     return jsonify(res)
 
 
-@app.route("/api/networks/<network>/snapshots/<snapshot>/interfaces", methods=["GET"])
+@app.route("/batfish/<network>/<snapshot>/interfaces", methods=["GET"])
 def get_interface_list(network: str, snapshot: str) -> Response:
     """Get all interfaces
     Args:
@@ -52,7 +52,7 @@ def get_interface_list(network: str, snapshot: str) -> Response:
     return jsonify(res)
 
 
-@app.route("/api/networks/<network>/snapshots/<snapshot>/nodes/<node>/interfaces", methods=["GET"])
+@app.route("/batfish/<network>/<snapshot>/nodes/<node>/interfaces", methods=["GET"])
 def get_node_interface_list(network: str, snapshot: str, node: str) -> Response:
     """Get node interfaces
     Args:
@@ -74,7 +74,7 @@ def get_node_interface_list(network: str, snapshot: str, node: str) -> Response:
     return jsonify(res)
 
 
-@app.route("/api/networks/<network>/snapshots/<snapshot>/nodes/<node>/traceroute", methods=["GET"])
+@app.route("/batfish/<network>/<snapshot>/nodes/<node>/traceroute", methods=["GET"])
 def get_node_traceroute(network: str, snapshot: str, node: str) -> Response:
     """Traceroute from this interface
     Args:
@@ -95,7 +95,7 @@ def get_node_traceroute(network: str, snapshot: str, node: str) -> Response:
     return jsonify(result)
 
 
-@app.route("/api/networks", methods=["GET"])
+@app.route("/batfish/networks", methods=["GET"])
 def get_networks_list() -> Response:
     """Get a list of networks
     Returns:
@@ -104,7 +104,7 @@ def get_networks_list() -> Response:
     return jsonify(bfqt.bf_networks())
 
 
-@app.route("/api/snapshots", methods=["GET"])
+@app.route("/batfish/snapshots", methods=["GET"])
 def get_snapshots_list() -> Response:
     """Get a list of snapshots
     Returns:
@@ -113,7 +113,7 @@ def get_snapshots_list() -> Response:
     return jsonify(bfqt.get_batfish_snapshots())
 
 
-@app.route("/api/networks/<network>/snapshots", methods=["GET"])
+@app.route("/batfish/<network>/snapshots", methods=["GET"])
 def get_networks_snapshots_list(network) -> Response:
     """Get a list of snapshots
     Returns:
@@ -127,7 +127,7 @@ def get_networks_snapshots_list(network) -> Response:
     return jsonify(bfqt.get_batfish_snapshots(network=network)[network])
 
 
-@app.route("/api/networks/<network>/snapshots/<snapshot>/register", methods=["PUSH"])
+@app.route("/batfish/<network>/<snapshot>/register", methods=["PUSH"])
 def push_snapshot_to_batfish(network, snapshot) -> Response:
     """Post (register) snapshot to batfish
     Args:
@@ -145,7 +145,7 @@ def push_snapshot_to_batfish(network, snapshot) -> Response:
     return jsonify(status.to_dict())
 
 
-@app.route("/api/networks/<network>/snapshots/<snapshot>/patterns", methods=["GET"])
+@app.route("/configs/<network>/<snapshot>/patterns", methods=["GET"])
 def get_snapshot_patterns(network: str, snapshot: str) -> Response:
     """Get snapshot patterns
     Args:
@@ -161,7 +161,7 @@ def get_snapshot_patterns(network: str, snapshot: str) -> Response:
     return jsonify(snapshot_patterns)
 
 
-@app.route("/api/networks/<network>/snapshots/<snapshot>/patterns", methods=["POST"])
+@app.route("/configs/<network>/<snapshot>/patterns", methods=["POST"])
 def post_snapshot_patterns(network: str, snapshot: str) -> Response:
     """Post (make) snapshot patterns
     Args:
@@ -187,7 +187,7 @@ def post_snapshot_patterns(network: str, snapshot: str) -> Response:
     return jsonify(resp)
 
 
-@app.route("/api/networks/<network>/queries", methods=["POST"])
+@app.route("/queries/<network>", methods=["POST"])
 def post_queries_for_all_snapshots(network) -> Response:
     """Post query request for all snapshots
     Args:
@@ -204,7 +204,7 @@ def post_queries_for_all_snapshots(network) -> Response:
     return jsonify(resp)
 
 
-@app.route("/api/networks/<network>/snapshots/<snapshot>/queries", methods=["POST"])
+@app.route("/queries/<network>/<snapshot>", methods=["POST"])
 def post_queries(network, snapshot) -> Response:
     """Post query request for a snapshot
     Args:
