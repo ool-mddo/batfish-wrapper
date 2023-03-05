@@ -25,17 +25,6 @@ class BatfishRegistrantBase(L1TopologyOperatorBase):
         self.bf_session = Session(host=bf_host)
         self.configs_dir = configs_dir
 
-    @staticmethod
-    def _safe_snapshot_name(snapshot: str) -> str:
-        """Convert raw snapshot name to safe name
-        Convert raw snapshot name (includes '/') to safe name (replace '/' to '_')
-        Args:
-            snapshot (str): Snapshot name
-        Returns:
-            str: safe snapshot name
-        """
-        return snapshot.replace("/", "_")
-
     def _snapshot_dir(self, network: str, snapshot: str) -> str:
         """Get snapshot directory path
         Args:
@@ -177,16 +166,7 @@ class BatfishRegistrantBase(L1TopologyOperatorBase):
         Returns:
             bool: true if the snapshot is physical
         """
-        # asked with snapshot name (multi-level snapshot directory name, ex: foo/bar)
-        if "/" in snapshot:
-            return path.exists(self._snapshot_dir(network, snapshot))
-
-        # asked with batfish-stored snapshot name (safe-snapshot-name, ex: foo_bar)
-        physical_snapshots = [
-            "/".join([s[0], self._safe_snapshot_name("/".join(s[1:]))])
-            for s in self._find_all_physical_snapshots(network)
-        ]
-        return f"{network}/{snapshot}" in physical_snapshots
+        return path.exists(self._snapshot_dir(network, snapshot))
 
     def _register_physical_snapshot(self, network: str, snapshot: str) -> RegisterStatus:
         """Register physical snapshot
@@ -196,11 +176,10 @@ class BatfishRegistrantBase(L1TopologyOperatorBase):
         Returns:
             RegisterStatus: Register status
         """
-        safe_snapshot = self._safe_snapshot_name(snapshot)
         print(f"# - Register physical snapshot {network}/{snapshot}")
         self.bf_session.set_network(network)
-        self.bf_session.init_snapshot(self._snapshot_dir(network, snapshot), name=safe_snapshot, overwrite=True)
-        self.bf_session.set_snapshot(safe_snapshot)
+        self.bf_session.init_snapshot(self._snapshot_dir(network, snapshot), name=snapshot, overwrite=True)
+        self.bf_session.set_snapshot(snapshot)
         return RegisterStatus(network, snapshot, "registered")
 
     def _fork_physical_snapshot(
@@ -241,10 +220,7 @@ class BatfishRegistrantBase(L1TopologyOperatorBase):
         Returns:
              RegisterStatus: Register status (includes snapshot pattern data for logical snapshot registration)
         """
-        print(
-            f"# Register snapshot: {network} / {snapshot} ",
-            f"as {self._safe_snapshot_name(snapshot)} (overwrite={overwrite})",
-        )
+        print(f"# Register snapshot: {network} / {snapshot} as {snapshot} (overwrite={overwrite})")
         # unregister logical snapshots without target snapshot (physical snapshots are kept)
         self.unregister_snapshots_exclude(network, snapshot)
 
@@ -271,7 +247,7 @@ class BatfishRegistrantBase(L1TopologyOperatorBase):
         Returns:
             None
         """
-        unreg_snapshots = [s for s in self.bf_snapshots(network) if s != self._safe_snapshot_name(snapshot)]
+        unreg_snapshots = [s for s in self.bf_snapshots(network) if s != snapshot]
         print(f"# - keep: {snapshot}, unregister: {unreg_snapshots}")
         for unreg_snapshot in unreg_snapshots:
             self.unregister_snapshot(network, unreg_snapshot)
