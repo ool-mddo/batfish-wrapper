@@ -52,7 +52,7 @@ def get_interface_list(network: str, snapshot: str) -> Response:
     return jsonify(res)
 
 
-@app.route("/batfish/<network>/<snapshot>/nodes/<node>/interfaces", methods=["GET"])
+@app.route("/batfish/<network>/<snapshot>/<node>/interfaces", methods=["GET"])
 def get_node_interface_list(network: str, snapshot: str, node: str) -> Response:
     """Get node interfaces
     Args:
@@ -74,7 +74,7 @@ def get_node_interface_list(network: str, snapshot: str, node: str) -> Response:
     return jsonify(res)
 
 
-@app.route("/batfish/<network>/<snapshot>/nodes/<node>/traceroute", methods=["GET"])
+@app.route("/batfish/<network>/<snapshot>/<node>/traceroute", methods=["GET"])
 def get_node_traceroute(network: str, snapshot: str, node: str) -> Response:
     """Traceroute from this interface
     Args:
@@ -145,7 +145,7 @@ def push_snapshot_to_batfish(network, snapshot) -> Response:
     return jsonify(status.to_dict())
 
 
-@app.route("/configs/<network>/<snapshot>/patterns", methods=["GET"])
+@app.route("/configs/<network>/<snapshot>/snapshot_patterns", methods=["GET"])
 def get_snapshot_patterns(network: str, snapshot: str) -> Response:
     """Get snapshot patterns
     Args:
@@ -161,7 +161,7 @@ def get_snapshot_patterns(network: str, snapshot: str) -> Response:
     return jsonify(snapshot_patterns)
 
 
-@app.route("/configs/<network>/<snapshot>/patterns", methods=["POST"])
+@app.route("/configs/<network>/<snapshot>/snapshot_patterns", methods=["POST"])
 def post_snapshot_patterns(network: str, snapshot: str) -> Response:
     """Post (make) snapshot patterns
     Args:
