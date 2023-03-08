@@ -5,6 +5,8 @@ from flask.logging import create_logger
 from bfwrapper.bf_loglevel import set_pybf_loglevel
 from bfwrapper.simulation_pattern_generator import SimulationPatternGenerator
 from bfwrapper.bf_query_thrower import BatfishQueryThrower
+from gitops.git_repository_operator import GitRepositoryOperator
+
 
 app = Flask(__name__)
 app_logger = create_logger(app)
@@ -114,7 +116,7 @@ def get_snapshots_list() -> Response:
 
 
 @app.route("/batfish/<network>/snapshots", methods=["GET"])
-def get_networks_snapshots_list(network) -> Response:
+def get_networks_snapshots_list(network: str) -> Response:
     """Get a list of snapshots
     Returns:
          Response: a list of snapshot names (str) in specified network name
@@ -127,8 +129,8 @@ def get_networks_snapshots_list(network) -> Response:
     return jsonify(bfqt.get_batfish_snapshots(network=network)[network])
 
 
-@app.route("/batfish/<network>/<snapshot>/register", methods=["PUSH"])
-def push_snapshot_to_batfish(network, snapshot) -> Response:
+@app.route("/batfish/<network>/<snapshot>/register", methods=["POST"])
+def post_snapshot_to_batfish(network: str, snapshot: str) -> Response:
     """Post (register) snapshot to batfish
     Args:
         network (str): Network name
@@ -188,7 +190,7 @@ def post_snapshot_patterns(network: str, snapshot: str) -> Response:
 
 
 @app.route("/queries/<network>", methods=["POST"])
-def post_queries_for_all_snapshots(network) -> Response:
+def post_queries_for_all_snapshots(network: str) -> Response:
     """Post query request for all snapshots
     Args:
         network (str): Network name
@@ -205,7 +207,7 @@ def post_queries_for_all_snapshots(network) -> Response:
 
 
 @app.route("/queries/<network>/<snapshot>", methods=["POST"])
-def post_queries(network, snapshot) -> Response:
+def post_queries(network: str, snapshot: str) -> Response:
     """Post query request for a snapshot
     Args:
         network (str): Network name
@@ -219,6 +221,42 @@ def post_queries(network, snapshot) -> Response:
     req = request.json
     query = req["query"] if "query" in req else None
     resp = bfqt.exec_queries(network, snapshot, query)
+    return jsonify(resp)
+
+
+@app.route("/configs/<network>/branch", methods=["POST"])
+def post_current_branch(network: str) -> (Response, int):
+    """Post (set) branch for network repository
+    Args:
+        network (str): Network name = repository name
+    Returns:
+        Response: current branch name
+    Note:
+        POST parameter:
+        * name (str): Optional: branch name
+    """
+    req = request.json
+    branch_name = req["name"] if "name" in req else "main"
+    repo_path = os.path.join(CONFIGS_DIR, network)
+
+    repo_opr = GitRepositoryOperator(repo_path)
+    resp = repo_opr.switch_branch(branch_name)
+    if resp["status"] == "error":
+        return jsonify(resp), 404
+    return jsonify(resp)
+
+
+@app.route("/configs/<network>/branch", methods=["GET"])
+def get_current_branch(network: str) -> Response:
+    """Get current branch of network repository
+    Args:
+        network (str): Network name = repository name
+    Returns:
+        Response: current branch name
+    """
+    repo_path = os.path.join(CONFIGS_DIR, network)
+    repo_opr = GitRepositoryOperator(repo_path)
+    resp = repo_opr.current_branch()
     return jsonify(resp)
 
 
