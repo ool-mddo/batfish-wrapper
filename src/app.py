@@ -1,5 +1,6 @@
 import logging
 import os
+import shutil
 from flask import Flask, request, jsonify, abort, Response
 from flask.logging import create_logger
 from bfwrapper.bf_loglevel import set_pybf_loglevel
@@ -147,6 +148,19 @@ def post_snapshot_to_batfish(network: str, snapshot: str) -> Response:
     return jsonify(status.to_dict())
 
 
+@app.route("/configs/<network>/<snapshot>/snapshot_patterns", methods=["DELETE"])
+def delete_snapshot_patterns(network: str, snapshot: str) -> Response:
+    """Delete snapshot patterns
+    Args:
+        network (str): Network name
+        snapshot (str): Snapshot name
+    """
+    app_logger.debug("delete_snapshot_patterns, %s/%s", network, snapshot)
+    snapshot_patterns_file = os.path.join(CONFIGS_DIR, network, snapshot, 'snapshot_patterns.json')
+    os.remove(snapshot_patterns_file)
+    return jsonify({})
+
+
 @app.route("/configs/<network>/<snapshot>/snapshot_patterns", methods=["GET"])
 def get_snapshot_patterns(network: str, snapshot: str) -> Response:
     """Get snapshot patterns
@@ -187,6 +201,16 @@ def post_snapshot_patterns(network: str, snapshot: str) -> Response:
     if resp:
         bfqt.register_snapshot(network, snapshot)
     return jsonify(resp)
+
+
+@app.route("/queries/<network>", methods=["DELETE"])
+def delete_queries(network: str) -> Response:
+    """Delete all query results
+    Args:
+        network (str): Network name
+    """
+    shutil.rmtree(os.path.join(QUERIES_DIR, network))
+    return jsonify({})
 
 
 @app.route("/queries/<network>", methods=["POST"])
