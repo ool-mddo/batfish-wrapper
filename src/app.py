@@ -156,8 +156,11 @@ def delete_snapshot_patterns(network: str, snapshot: str) -> Response:
         snapshot (str): Snapshot name
     """
     app_logger.debug("delete_snapshot_patterns, %s/%s", network, snapshot)
-    snapshot_patterns_file = os.path.join(CONFIGS_DIR, network, snapshot, 'snapshot_patterns.json')
-    os.remove(snapshot_patterns_file)
+    try:
+        snapshot_patterns_file = os.path.join(CONFIGS_DIR, network, snapshot, 'snapshot_patterns.json')
+        os.remove(snapshot_patterns_file)
+    except FileNotFoundError:
+        pass  # silent remove
     return jsonify({})
 
 
