@@ -11,7 +11,7 @@ class RegisterStatus:
         network: str,
         snapshot: str,
         status_str: str,
-        snapshot_pattern: Optional[Union[SnapshotPattern, SnapshotPatternDict]] = None,
+        snapshot_pattern: Optional[Union[SnapshotPattern, SnapshotPatternDict, None]] = None,
     ) -> None:
         """Constructor
         Args:
@@ -24,8 +24,13 @@ class RegisterStatus:
         self.status = status_str
         self.network = network
         self.snapshot = snapshot
+
         # for logical snapshot (else/physical: None)
         self.snapshot_pattern = None  # default
+
+        # NOTICE:
+        #   with `physical-snapshot-only` option,
+        #   then snapshot pattern is EMPTY for (unique) physical snapshot
         if snapshot_pattern is not None:
             self.snapshot_pattern = self._uniform_snapshot_pattern(snapshot_pattern)
 
@@ -48,5 +53,5 @@ class RegisterStatus:
             "status": self.status,
             "network": self.network,
             "snapshot": self.snapshot,
-            "snapshot_pattern": self.snapshot_pattern.to_dict(),
+            "snapshot_pattern": {} if self.snapshot_pattern is None else self.snapshot_pattern.to_dict(),
         }

@@ -12,11 +12,14 @@ from gitops.git_repository_operator import GitRepositoryOperator
 app = Flask(__name__)
 app_logger = create_logger(app)
 logging.basicConfig(level=logging.WARNING)
+
 BATFISH_HOST = os.environ.get("BATFISH_HOST", "localhost")
 CONFIGS_DIR = os.environ.get("MDDO_CONFIGS_DIR", "./configs")
 QUERIES_DIR = os.environ.get("MDDO_QUERIES_DIR", "./queries")
+
 # pylint: disable=too-many-function-args
 bfqt = BatfishQueryThrower(BATFISH_HOST, CONFIGS_DIR, QUERIES_DIR)
+
 set_pybf_loglevel("warning")
 
 
