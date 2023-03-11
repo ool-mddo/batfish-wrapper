@@ -212,7 +212,10 @@ def delete_queries(network: str) -> Response:
     Args:
         network (str): Network name
     """
-    shutil.rmtree(os.path.join(QUERIES_DIR, network))
+    try:
+        shutil.rmtree(os.path.join(QUERIES_DIR, network))
+    except FileNotFoundError:
+        pass  # silent remove
     return jsonify({})
 
 
