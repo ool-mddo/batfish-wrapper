@@ -230,12 +230,12 @@ class BatfishRegistrant(BatfishRegistrantBase):
         if snapshot_pattern is not None:
             # source node/interface is disabled?
             if snapshot_pattern.owns_as_disabled_intf(node, intf):
-                print(f"# traceroute: source {node}[{intf}] is disabled in {network}/{snapshot}")
+                self.logger.warning("traceroute: source %s[%s] is disabled in %s/%s", node, intf, network, snapshot)
                 return self._traceroute_result(network, snapshot, self._disabled_traceroute_answer(), snapshot_pattern)
             # destination ip is disabled?
             # NOTICE: if the network/snapshot has duplicated ip address, it cannot work fine, probably.
             if self._find_ip_addr_from_lost_edges(network, snapshot, snapshot_pattern, destination):
-                print(f"# traceroute: destination {destination} is disabled in {network}/{snapshot}")
+                self.logger.warning("traceroute: destination %s is disabled in %s/%s", destination, network, snapshot)
                 return self._traceroute_result(network, snapshot, self._disabled_traceroute_answer(), snapshot_pattern)
 
         # query traceroute

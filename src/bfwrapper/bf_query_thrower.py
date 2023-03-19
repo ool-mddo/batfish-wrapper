@@ -97,7 +97,7 @@ class BatfishQueryThrower(BatfishRegistrant):
         results = []
         # exec query
         for query in query_dict:
-            print(f"# Exec Batfish Query = {query}")
+            self.logger.info("Exec Batfish Query = %s", query)
             csv_file_path = path.join(output_dir, query + ".csv")
             self._save_df_as_csv(query_dict[query](self.bf_session).answer().frame(), csv_file_path)
             results.append({"query": f"batfish/{query}", "file": csv_file_path})
@@ -129,7 +129,7 @@ class BatfishQueryThrower(BatfishRegistrant):
         """
         results = []
         for query in query_dict:
-            print(f"# Exec Other Query = {query}")
+            self.logger.info("Exec Other Query = %s", query)
             csv_file_path = path.join(output_dir, query + ".csv")
             self._save_df_as_csv(query_dict[query](self, network, snapshot), csv_file_path)
             results.append({"query": f"other/{query}", "file": csv_file_path})
@@ -190,9 +190,9 @@ class BatfishQueryThrower(BatfishRegistrant):
 
         input_dir = self._snapshot_path(self.configs_dir, network, snapshot)
         output_dir = self._snapshot_path(self.queries_dir, network, snapshot)
-        print(f"# * Network/snapshot   : {network} / {snapshot}")
-        print(f"#   Input snapshot dir : {input_dir}")
-        print(f"#   Output csv     dir : {output_dir}")
+        self.logger.info("Network/snapshot   : %s/%s", network, snapshot)
+        self.logger.info("Input snapshot dir : %s", input_dir)
+        self.logger.info("Output csv     dir : %s", output_dir)
         result: WholeQuerySummaryDict = {
             "network": network,
             "snapshot": snapshot,
@@ -232,7 +232,6 @@ class BatfishQueryThrower(BatfishRegistrant):
         results = []
         for snapshot in self.snapshots_in_network(network):
             snapshot_name = path.join(*snapshot[1:])
-            print("# ---")
-            print(f"# For all snapshots: {network} / {snapshot_name}")
+            self.logger.info("For all snapshots: %s/%s", network, snapshot_name)
             results.append(self.exec_queries(network, snapshot_name, query))
         return results

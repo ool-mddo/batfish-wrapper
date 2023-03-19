@@ -1,11 +1,12 @@
 import glob
 from pathlib import Path
 from typing import List
+import logging
 
 
 class L1TopologyOperatorBase:
     def __init__(self):
-        pass
+        self.logger = logging.getLogger("bfwrapper")
 
     @staticmethod
     def _find_all_l1topology_files(dir_path: str) -> List[str]:

@@ -1,6 +1,6 @@
 import argparse
 import os
-from bfwrapper.bf_loglevel import set_pybf_loglevel
+from bfwrapper.loglevel import set_loglevel
 from bfwrapper.bf_query_thrower import BatfishQueryThrower, OTHER_QUERY_DICT, BF_QUERY_DICT
 
 if __name__ == "__main__":
@@ -22,7 +22,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # set log level
-    set_pybf_loglevel(args.log_level)
+    set_loglevel("pybatfish", args.log_level)
     # batfish query thrower
     # pylint: disable=too-many-function-args
     bfqt = BatfishQueryThrower(args.batfish, args.configs_dir, args.queries_dir)

@@ -22,7 +22,7 @@ class GitRepositoryOperator:
         """
         branches = self._branches()
         current_branch = next((branch for branch in branches if re.match(r"\*", branch)), None)
-        return {"current_branch": re.sub(r'\*', '', current_branch)}
+        return {"current_branch": re.sub(r"\*", "", current_branch)}
 
     def switch_branch(self, branch: str) -> Dict:
         """Change(switch) current branch

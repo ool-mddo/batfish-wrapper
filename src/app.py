@@ -3,7 +3,7 @@ import os
 import shutil
 from flask import Flask, request, jsonify, abort, Response
 from flask.logging import create_logger
-from bfwrapper.bf_loglevel import set_pybf_loglevel
+from bfwrapper.loglevel import set_loglevel
 from bfwrapper.simulation_pattern_generator import SimulationPatternGenerator
 from bfwrapper.bf_query_thrower import BatfishQueryThrower
 from gitops.git_repository_operator import GitRepositoryOperator
@@ -20,7 +20,8 @@ QUERIES_DIR = os.environ.get("MDDO_QUERIES_DIR", "./queries")
 # pylint: disable=too-many-function-args
 bfqt = BatfishQueryThrower(BATFISH_HOST, CONFIGS_DIR, QUERIES_DIR)
 
-set_pybf_loglevel("warning")
+set_loglevel("pybatfish", os.environ.get("BATFISH_WRAPPER_PYBATFISH_LOG_LEVEL", "warning"))
+set_loglevel("bfwrapper", os.environ.get("BATFISH_WRAPPER_LOG_LEVEL", "info"))
 
 
 @app.route("/batfish/<network>/<snapshot>/nodes", methods=["GET"])
@@ -160,7 +161,7 @@ def delete_snapshot_patterns(network: str, snapshot: str) -> Response:
     """
     app_logger.debug("delete_snapshot_patterns, %s/%s", network, snapshot)
     try:
-        snapshot_patterns_file = os.path.join(CONFIGS_DIR, network, snapshot, 'snapshot_patterns.json')
+        snapshot_patterns_file = os.path.join(CONFIGS_DIR, network, snapshot, "snapshot_patterns.json")
         os.remove(snapshot_patterns_file)
     except FileNotFoundError:
         pass  # silent remove

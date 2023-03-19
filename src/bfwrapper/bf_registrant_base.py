@@ -2,7 +2,6 @@
 Definition of BatfishRegistrantBase class
 """
 import json
-import sys
 import re
 from os import path
 from typing import List, Optional
@@ -136,7 +135,7 @@ class BatfishRegistrantBase(L1TopologyOperatorBase):
         snapshot_dir = self._detect_physical_snapshot_dir(network, snapshot)
         snapshot_patterns_path = path.join(snapshot_dir, "snapshot_patterns.json")
         if not path.exists(snapshot_patterns_path):
-            print(f"Error: cannot find snapshot_patterns.json in {snapshot_dir}", file=sys.stderr)
+            self.logger.error("Cannot find snapshot_patterns.json in %s", snapshot_dir)
             return []
 
         with open(snapshot_patterns_path, "r", encoding="utf-8") as file:
@@ -144,7 +143,7 @@ class BatfishRegistrantBase(L1TopologyOperatorBase):
                 snapshot_pattern_dicts = json.load(file)
                 return [SnapshotPattern(**ptn) for ptn in snapshot_pattern_dicts]
             except json.JSONDecodeError as err:
-                print(f"Error: cannot read snapshot_patterns.json in {snapshot_dir} with: {err}", file=sys.stderr)
+                self.logger.error("Cannot read snapshot_patterns.json in %s with: %s", snapshot_dir, err)
                 return []
 
     def _find_snapshot_pattern(self, network: str, snapshot: str) -> [SnapshotPattern, None]:
@@ -176,7 +175,7 @@ class BatfishRegistrantBase(L1TopologyOperatorBase):
         Returns:
             RegisterStatus: Register status
         """
-        print(f"# - Register physical snapshot {network}/{snapshot}")
+        self.logger.info("Register physical snapshot %s/%s", network, snapshot)
         self.bf_session.set_network(network)
         self.bf_session.init_snapshot(self._snapshot_dir(network, snapshot), name=snapshot, overwrite=True)
         self.bf_session.set_snapshot(snapshot)
@@ -200,7 +199,7 @@ class BatfishRegistrantBase(L1TopologyOperatorBase):
             return self._register_physical_snapshot(network, origin_ss)
 
         # fork snapshot
-        print(f"# - Fork physical snapshot {network}/{origin_ss} -> {target_ss}")
+        self.logger.info("Fork physical snapshot %s/%s -> %s", network, origin_ss, target_ss)
         self.bf_session.set_network(network)
         self.bf_session.fork_snapshot(
             origin_ss,
@@ -220,7 +219,7 @@ class BatfishRegistrantBase(L1TopologyOperatorBase):
         Returns:
              RegisterStatus: Register status (includes snapshot pattern data for logical snapshot registration)
         """
-        print(f"# Register snapshot: {network} / {snapshot} as {snapshot} (overwrite={overwrite})")
+        self.logger.info("Register snapshot: %s/%s (overwrite=%s)", network, snapshot, overwrite)
         # unregister logical snapshots without target snapshot (physical snapshots are kept)
         self.unregister_snapshots_exclude(network, snapshot)
 
@@ -248,7 +247,7 @@ class BatfishRegistrantBase(L1TopologyOperatorBase):
             None
         """
         unreg_snapshots = [s for s in self.bf_snapshots(network) if s != snapshot]
-        print(f"# - keep: {snapshot}, unregister: {unreg_snapshots}")
+        self.logger.info("Keep: %s, unregister: %s", snapshot, unreg_snapshots)
         for unreg_snapshot in unreg_snapshots:
             self.unregister_snapshot(network, unreg_snapshot)
 
