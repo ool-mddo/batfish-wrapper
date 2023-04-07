@@ -7,6 +7,7 @@ from bfwrapper.loglevel import set_loglevel
 from bfwrapper.simulation_pattern_generator import SimulationPatternGenerator
 from bfwrapper.bf_query_thrower import BatfishQueryThrower
 from gitops.git_repository_operator import GitRepositoryOperator
+from typing import Dict, List
 
 
 app = Flask(__name__)
@@ -208,6 +209,132 @@ def post_snapshot_patterns(network: str, snapshot: str) -> Response:
     if resp:
         bfqt.register_snapshot(network, snapshot)
     return jsonify(resp)
+
+
+def read_file(network: str, snapshot: str, filename: str) -> Dict[str, str]:
+    """read file
+    Args:
+        network (str): Network name
+        snapshot (str): Snapshot name
+        filename (str): filename
+    Returns:
+        Response: config := {"filename": "xxx", "text": "xxx"}
+    Raise:
+        FileNotFoundError
+    Note:
+        "layer1_topology.json" is red in batfish dir
+    """
+    # TODO: sanitize
+    if filename == "layer1_topology.json":
+        path = os.path.join(CONFIGS_DIR, network, snapshot, "batfish", filename)
+    else:
+        path = os.path.join(CONFIGS_DIR, network, snapshot, "configs", filename)
+        
+    with open(path, mode="r") as f:
+        text = f.read()
+    return {"filename": filename, "text": text}
+
+
+def read_all_files(network: str, snapshot: str) -> List[Dict[str, str]]:
+    """read all files
+    Args:
+        network (str): Network name
+        snapshot (str): Snapshot name
+    Returns:
+        Response: config := {"filename": "xxx", "text": "xxx"}
+    Note:
+        "layer1_topology.json" is red in batfish dir
+    """
+    # TODO: sanitize
+    res = []
+    for filename in os.listdir(os.path.join(CONFIGS_DIR, network, snapshot, "configs")):
+        path = os.path.join(CONFIGS_DIR, network, snapshot, "configs", filename)
+        with open(path, mode="r") as f:
+            text = f.read()
+            res.append({"filename": filename, "text": text})
+
+    path = os.path.join(CONFIGS_DIR, network, snapshot, "batfish", "layer1_topology.json")
+    try:
+        with open(path, mode="r") as f:
+            text = f.read()
+            res.append({"filename": "layer1_topology.json", "text": text})
+    except:
+        pass
+    return res
+
+
+def write_file(network: str, snapshot: str, filename: str, text: str) -> None:
+    """read file
+    Args:
+        network (str): Network name
+        snapshot (str): Snapshot name
+        filename (str): filename
+    Returns:
+        None
+    Note:
+        "layer1_topology.json" is written in batfish dir
+    """
+    # TODO: sanitize
+    if filename == "layer1_topology.json":
+        dir_path = os.path.join(CONFIGS_DIR, network, snapshot, "batfish")
+        path = os.path.join(CONFIGS_DIR, network, snapshot, "batfish", filename)
+    else:
+        dir_path = os.path.join(CONFIGS_DIR, network, snapshot, "configs")
+        path = os.path.join(CONFIGS_DIR, network, snapshot, "configs", filename)
+    os.makedirs(dir_path, exist_ok=True)
+    with open(path, mode="w") as f:
+        f.write(text)
+
+
+@app.route("/configs/<network>/<snapshot>/", methods=["POST"])
+def save_config_file(network: str, snapshot: str) -> Response:
+    """save config file
+    Args:
+        network (str): Network name
+        snapshot (str): Snapshot name
+    Returns:
+        Response: None
+    Note:
+        POST payload:
+        * List of config
+        * config := {"filename": "xxx", "text": "xxx"}
+    """
+    req: List[Dict[str, str]] = request.json
+    for config in req:
+        write_file(network, snapshot, config["filename"], config["text"])
+    return jsonify(None)
+
+
+@app.route("/configs/<network>/<snapshot>/<filename>", methods=["GET"])
+def get_each_config_file(network: str, snapshot: str, filename: str) -> Response:
+    """get each config file
+    Args:
+        network (str): Network name
+        snapshot (str): Snapshot name
+        filename (str): filename
+    Returns:
+        Response: config := {"filename": "xxx", "text": "xxx"}
+    """
+    try:
+        res = read_file(network, snapshot, filename)
+    except FileNotFoundError as e:
+        return Response(f"{filename} is not found", status=404)
+    return jsonify(res)
+
+
+@app.route("/configs/<network>/<snapshot>/", methods=["GET"])
+def get_list_config_file(network: str, snapshot: str) -> Response:
+    """get list of config file
+    Args:
+        network (str): Network name
+        snapshot (str): Snapshot name
+    Returns:
+        Response: List of config
+        config := {"filename": "xxx", "text": "xxx"}
+    """
+    res = read_all_files(network, snapshot)
+    return jsonify(res)
+
 
 
 @app.route("/queries/<network>", methods=["DELETE"])
