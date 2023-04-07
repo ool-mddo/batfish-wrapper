@@ -1,0 +1,14 @@
+{% set timer = rdiff["__parent"] %}
+{% set tp = timer["__parent"] %}
+{% set node = tp["__parent"] %}
+{% set network = node["__parent"] %}
+{% set top = network["__parent"] %}
+{% set ns = namespace(area="") %}
+{% for original_network in top["__original"] %}
+{% if original_network["network-id"] == network["network-id"] %}
+{% set ns.area = original_network["mddo-topology:ospf-area-network-attributes"]["identifier"] %}
+{% endif %}
+{% endfor %}
+{% set interface = tp["tp-id"] %}{# if snip logical unit, use .split(":")[0] #}
+{% set dead_interval = rdiff["dead-interval"] %}
+set protocol ospf area {{ns.area}} interface {{interface}} dead-interval {{dead_interval}}

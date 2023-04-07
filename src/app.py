@@ -8,6 +8,7 @@ from bfwrapper.simulation_pattern_generator import SimulationPatternGenerator
 from bfwrapper.bf_query_thrower import BatfishQueryThrower
 from gitops.git_repository_operator import GitRepositoryOperator
 from typing import Dict, List
+from model_merge.config import generate_config
 
 
 app = Flask(__name__)
@@ -419,6 +420,19 @@ def get_current_branch(network: str) -> Response:
     repo_opr = GitRepositoryOperator(repo_path)
     resp = repo_opr.current_branch()
     return jsonify(resp)
+
+
+@app.route("/tools/model-merge", methods=["POST"])
+def get_diff_config() -> Response:
+    """Calc diff and generate config
+    Data:
+        {"asis": ..., "tobe": ...}
+    Returns:
+        Response: {device name and config}
+    """
+    req = request.json
+    res = generate_config(req["asis"], req["tobe"])
+    return jsonify(res)
 
 
 if __name__ == "__main__":

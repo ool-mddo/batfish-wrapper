@@ -1,4 +1,4 @@
-FROM python:3.8-slim
+FROM python:3.11-slim
 
 RUN mkdir -p /batfish-wrapper
 WORKDIR /batfish-wrapper
@@ -6,7 +6,7 @@ COPY . /batfish-wrapper/
 
 # install gitops for GitPython
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends git \
+    && apt-get install -y --no-install-recommends git build-essential \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
