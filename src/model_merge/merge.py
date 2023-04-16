@@ -1,7 +1,7 @@
 import json
 import sys
-from jinja2 import Environment, FileSystemLoader
 from os import path
+from jinja2 import Environment, FileSystemLoader
 
 ID_KEYS = set(["network-id", "node-id", "tp-id", "router-id", "protocol"])
 SKIP_KEYS = set(["supporting-node", "supporting-termination-point", "description"])
@@ -87,7 +87,7 @@ def get_diff(original_asis, patched_original_asis):
                 if k in SKIP_KEYS:
                     continue
                 new_var[k], res = _worker(oa[k], poa[k])
-                if not (res):
+                if not res:
                     new_var.pop(k)
             if len(new_var) != 0:
                 return new_var, True
@@ -209,10 +209,10 @@ if __name__ == "__main__":
         print("usage:")
         print("merge.py patch original_asis.json emulated_asis.json emulated_tobe.json")
         print("merge.py config original_asis.json emulated_asis.json emulated_tobe.json")
-        exit(1)
+        sys.exit(1)
     _, command, original_asis_file, emulated_asis_file, emulated_tobe_file = sys.argv
     original_asis, emulated_asis, emulated_tobe = map(
-        lambda filename: json.load(open(filename)),
+        lambda filename: json.load(open(filename, encoding="utf-8")),
         [original_asis_file, emulated_asis_file, emulated_tobe_file],
     )
 
@@ -220,7 +220,7 @@ if __name__ == "__main__":
 
     if command == "patch":
         print(json.dumps(patched_original_asis, indent=2))
-        exit(0)
+        sys.exit(0)
     if command == "config":
         prod = []
         j2env = Environment(
@@ -239,4 +239,4 @@ if __name__ == "__main__":
                 }
             )
         print(json.dumps(prod, indent=2))
-        exit(0)
+        sys.exit(0)

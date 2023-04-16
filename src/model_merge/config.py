@@ -1,7 +1,5 @@
-import json
-import sys
-from jinja2 import Environment, FileSystemLoader
 from os import path
+from jinja2 import Environment, FileSystemLoader
 
 from .merge import get_diff, calc_reversed_diffs, get_node_and_template_name
 
