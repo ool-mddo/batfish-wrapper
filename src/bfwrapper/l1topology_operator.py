@@ -39,9 +39,8 @@ class L1TopologyOperator(L1TopologyOperatorBase):
         #       - runtime_data.json (fixed name)
         l1_topology_files = self._find_all_l1topology_files(self.snapshot_dir_path)
         if len(l1_topology_files) != 1:
-            print(
-                f"# Error: layer1_topology.json not found or found multiple in directory {self.snapshot_dir_path}",
-                file=sys.stderr,
+            self.logger.critical(
+                "layer1_topology.json not found or found multiple in directory %s", self.snapshot_dir_path
             )
             sys.exit(1)
 
@@ -52,7 +51,7 @@ class L1TopologyOperator(L1TopologyOperatorBase):
         # The layer1_topology.json can be found either in the snapshot directory or in the snapshot/batfish directory.
         # So it needs to identify the location and identify the snapshot directory.
         self.snapshot_dir_path = self._detect_snapshot_dir_path(l1_topology_file)
-        print(f"# input : snapshot dir: {self.snapshot_dir_path}")
+        self.logger.info("input : snapshot dir: %s", self.snapshot_dir_path)
 
     @staticmethod
     def __find_edge_in(edge: L1TopologyEdge, edges: List[L1TopologyEdge]) -> [L1TopologyEdge, None]:
@@ -92,8 +91,7 @@ class L1TopologyOperator(L1TopologyOperatorBase):
             }
         )
 
-    @staticmethod
-    def _read_l1_topology_data(l1topo_file: str) -> L1TopologyDict:
+    def _read_l1_topology_data(self, l1topo_file: str) -> L1TopologyDict:
         """Read Layer1 topology data
         Args:
             l1topo_file (str): layer1_topology.json path
@@ -104,7 +102,7 @@ class L1TopologyOperator(L1TopologyOperatorBase):
             try:
                 return json.load(file)
             except json.JSONDecodeError as err:
-                print(f"Error: cannot read {l1topo_file} with: {err}", file=sys.stderr)
+                self.logger.critical("Cannot read %s with: %s", l1topo_file, err)
                 sys.exit(1)
 
     def _deduplicate_edges(self, edges: List[L1TopologyEdge]) -> List[L1TopologyEdge]:

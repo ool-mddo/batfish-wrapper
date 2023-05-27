@@ -75,9 +75,8 @@ class SimulationPatternGenerator(L1TopologyOperator):
         if drawoff_snapshot_pattern is not None:
             drawoff_edges = drawoff_snapshot_pattern.lost_edges
             drawoff_snapshot_name = drawoff_snapshot_pattern.target_snapshot_name
-            print("# drawoff_snapshot_pattern")
-            print(f"# - drawoff_edges: {drawoff_edges}")
-            print(f"# - drawoff_snapshot_name: {drawoff_snapshot_name}")
+            self.logger.info("drawoff_snapshot name : %s", drawoff_snapshot_name)
+            self.logger.info("drawoff_snapshot edges: %s", [str(e) for e in drawoff_edges])
 
         snapshot_patterns = []
         for i, edge in enumerate(self.filter_edges(edges, drawoff_edges)):
@@ -91,7 +90,7 @@ class SimulationPatternGenerator(L1TopologyOperator):
                 drawoff_edges + [edge],
                 f"Link-down No.{index:02}: {edge} (L1)",
             )
-            print(f"# linkdown {index:02}: {snapshot_pattern.description}")
+            self.logger.info("linkdown %02d: %s", index, snapshot_pattern.description)
             snapshot_patterns.append(snapshot_pattern)
 
         return snapshot_patterns

@@ -60,15 +60,15 @@ OTHER_QUERY_DICT: OqDict = {"edges_layer1": lambda bfqt, network, snapshot: bfqt
 class BatfishQueryThrower(BatfishRegistrant):
     """Batfish Query Thrower"""
 
-    def __init__(self, bf_host: str, configs_dir: str, models_dir: str) -> None:
+    def __init__(self, bf_host: str, configs_dir: str, queries_dir: str) -> None:
         """Constructor
         Args:
             bf_host (str): Batfish host (URL)
             configs_dir (str): Path of 'configs' directory (contains batfish network/snapshot directories)
-            models_dir (str): Path of 'models' directory (batfish query results store)
+            queries_dir (str): Path of 'models' directory (batfish query results store)
         """
         super().__init__(bf_host, configs_dir)
-        self.models_dir = models_dir
+        self.queries_dir = queries_dir
 
     @staticmethod
     def _save_df_as_csv(dataframe: pd.DataFrame, csv_file: str) -> None:
@@ -97,7 +97,7 @@ class BatfishQueryThrower(BatfishRegistrant):
         results = []
         # exec query
         for query in query_dict:
-            print(f"# Exec Batfish Query = {query}")
+            self.logger.info("Exec Batfish Query = %s", query)
             csv_file_path = path.join(output_dir, query + ".csv")
             self._save_df_as_csv(query_dict[query](self.bf_session).answer().frame(), csv_file_path)
             results.append({"query": f"batfish/{query}", "file": csv_file_path})
@@ -129,7 +129,7 @@ class BatfishQueryThrower(BatfishRegistrant):
         """
         results = []
         for query in query_dict:
-            print(f"# Exec Other Query = {query}")
+            self.logger.info("Exec Other Query = %s", query)
             csv_file_path = path.join(output_dir, query + ".csv")
             self._save_df_as_csv(query_dict[query](self, network, snapshot), csv_file_path)
             results.append({"query": f"other/{query}", "file": csv_file_path})
@@ -189,15 +189,15 @@ class BatfishQueryThrower(BatfishRegistrant):
             other_query_dict = {query: OTHER_QUERY_DICT[query]} if query in OTHER_QUERY_DICT else {}
 
         input_dir = self._snapshot_path(self.configs_dir, network, snapshot)
-        output_dir = self._snapshot_path(self.models_dir, network, snapshot)
-        print(f"# * Network/snapshot   : {network} / {snapshot}")
-        print(f"#   Input snapshot dir : {input_dir}")
-        print(f"#   Output csv     dir : {output_dir}")
+        output_dir = self._snapshot_path(self.queries_dir, network, snapshot)
+        self.logger.info("Network/snapshot   : %s/%s", network, snapshot)
+        self.logger.info("Input snapshot dir : %s", input_dir)
+        self.logger.info("Output csv     dir : %s", output_dir)
         result: WholeQuerySummaryDict = {
             "network": network,
             "snapshot": snapshot,
             "snapshot_dir": input_dir,
-            "models_dir": output_dir,
+            "queries_dir": output_dir,
             "queries": [],
         }
 
@@ -225,14 +225,13 @@ class BatfishQueryThrower(BatfishRegistrant):
             List[WholeQuerySummary]: Query summaries
         """
         # clear output dir if exists
-        models_snapshot_base_dir = path.join(self.models_dir, network)
+        models_snapshot_base_dir = path.join(self.queries_dir, network)
         if path.isdir(models_snapshot_base_dir):
             shutil.rmtree(models_snapshot_base_dir)
 
         results = []
         for snapshot in self.snapshots_in_network(network):
             snapshot_name = path.join(*snapshot[1:])
-            print("# ---")
-            print(f"# For all snapshots: {network} / {snapshot_name}")
+            self.logger.info("For all snapshots: %s/%s", network, snapshot_name)
             results.append(self.exec_queries(network, snapshot_name, query))
         return results

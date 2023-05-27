@@ -39,6 +39,6 @@ class WholeQuerySummaryDict(TypedDict):
     network: str
     snapshot: str
     snapshot_dir: str
-    models_dir: str
+    queries_dir: str
     queries: List[QuerySummaryDict]
     snapshot_pattern: Optional[SnapshotPatternDict]
