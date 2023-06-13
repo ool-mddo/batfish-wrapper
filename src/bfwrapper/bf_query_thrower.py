@@ -50,6 +50,8 @@ BF_QUERY_DICT: BfqDict = {
     "ospf_proc_conf": lambda bf: bf.q.ospfProcessConfiguration(),
     "ospf_intf_conf": lambda bf: bf.q.ospfInterfaceConfiguration(),
     "ospf_area_conf": lambda bf: bf.q.ospfAreaConfiguration(),
+    "bgp_proc_conf": lambda bf: bf.q.bgpProcessConfiguration(),
+    "bgp_peer_conf": lambda bf: bf.q.bgpPeerConfiguration(),
     "routes": lambda bf: bf.q.routes(protocols="static,connected,local"),
     "named_structures": lambda bf: bf.q.namedStructures(),
 }
