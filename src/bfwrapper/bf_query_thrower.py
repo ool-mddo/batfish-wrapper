@@ -182,6 +182,11 @@ class BatfishQueryThrower(BatfishRegistrant):
         pd.set_option("display.width", 300)
         pd.set_option("display.max_columns", 20)
         pd.set_option("display.max_rows", 200)
+        # NOTE: As a result of the query, a single cell may contain multiple elements.
+        # In that case, the cell will contain the value of the array converted to a string (e.g., "[a,b,c]").
+        # When a cell contains many elements, the array will be omitted when the table is saved in CSV
+        # if this option is not set ("[a,b,c,...]" ).
+        pd.set_option("display.max_seq_items", None)
 
         # limiting target query when using --query arg
         bf_query_dict = BF_QUERY_DICT
