@@ -24,9 +24,9 @@ It will up at `http://localhost:5000/`
 * `MDDO_CONFIGS_DIR`: batfish snapshot directory (default: `./configs`)
 * `MDDO_QUERIES_DIR`: query result directory (default: `./queries`)
 
-## REST API
+## REST API (`/batfish` space)
 
-see. [app.py](./src/app.py)
+APIs to control batfish.
 
 Parameters in examples:
 * network name : `pushed_configs`
@@ -90,6 +90,24 @@ L3 Reachability (traceroute) simulation
 curl -X GET "http://localhost:5000/batfish/pushed_configs/mddo_network/regiona-svr01/traceroute?interface=enp1s4&destination=172.31.10.1"
 ```
 
+### Register snapshot into batfish (for testing/debugging)
+
+Register snapshot
+* POST `/batfish/<network>/<snapshot>/register`
+  * `overwrite`: [optional] Overwrite (reload) snapshot
+
+```shell
+curl -X POST -H "Content-Type: application/json" -d {} \
+  http://localhost:5000/batfish/pushed_configs/mddo_network/register
+# if overwrite (reload)
+curl -X POST -H "Content-Type: application/json" -d '{"overwrite": true}'\
+  http://localhost:5000/batfish/pushed_configs/mddo_network/register
+```
+
+## REST API (`/configs` space)
+
+APIs to operate configs/snapshots.
+
 ### Operate logical (linkdown) snapshot pattern
 
 Make snapshot patterns
@@ -126,6 +144,42 @@ Remove snapshot patterns
 curl -X DELETE http://localhost:5000/configs/pushed_configs/mddo_network/snapshot_patterns
 ```
 
+### Operate configs git repository
+
+Change current branch
+* POST `/configs/<network>/branch`
+  * `name` : [optional] branch name (default "main")
+
+```shell
+curl -X POST -H "Content-Type: application/json" -d '{"name": "202202demo"}' \
+  http://localhost:5000/configs/pushed_configs/branch
+```
+
+Fetch current branch
+* GET `/configs/<network>/branch`
+
+```shell
+curl http://localhost:5000/configs/pushed_configs/branch
+```
+
+### Config file operation
+
+Save (upload) config file
+* POST `/configs/<network>/<snapshot>`
+  * `filename`: file name
+  * `text`: file body
+
+Fetch (download) config file
+* GET `/configs/<network>/<snapshot>/<filename>`
+
+Fetch all config files
+* GET `/configs/<network>/<snapshot>`
+
+
+## REST API (`/queries` space)
+
+APIs to operate batfish query (query results)
+
 ### Exec batfish queries and save these result as csv files (local files)
 
 Make query data
@@ -159,37 +213,13 @@ Delete query data
 curl -XX DELETE http://localhost:5000/queries/pushed_configs
 ```
 
-### Register snapshot into batfish (for testing/debugging)
+## Other REST API
 
-Register snapshot
-* POST `/batfish/<network>/<snapshot>/register`
-  * `overwrite`: [optional] Overwrite (reload) snapshot
+Calculate asis/tobe model diff and generate configurations using it.
 
-```shell
-curl -X POST -H "Content-Type: application/json" -d {} \
-  http://localhost:5000/batfish/pushed_configs/mddo_network/register
-# if overwrite (reload)
-curl -X POST -H "Content-Type: application/json" -d '{"overwrite": true}'\
-  http://localhost:5000/batfish/pushed_configs/mddo_network/register
-```
-
-### Operate configs git repository
-
-Change current branch
-* POST `/configs/<network>/branch`
-  * `name` : [optional] branch name (default "main")
-
-```shell
-curl -X POST -H "Content-Type: application/json" -d '{"name": "202202demo"}' \
-  http://localhost:5000/configs/pushed_configs/branch
-```
-
-Fetch current branch
-* GET `/configs/<network>/branch`
-
-```shell
-curl http://localhost:5000/configs/pushed_configs/branch
-```
+* POST `/model-merge`
+  * `asis`: asis topology
+  * `tobe`: tobe topology
 
 ## Development
 
