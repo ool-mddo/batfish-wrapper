@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM python:3.12.16-slim
 
 RUN mkdir -p /batfish-wrapper
 WORKDIR /batfish-wrapper
